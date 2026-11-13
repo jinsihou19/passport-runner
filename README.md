@@ -18,6 +18,14 @@
 - **ESP-Claw** 把 Espressif 的 Agent 移植到 Passport 的 ESP32-C3。打开设备网页，接入支持工具调用的 OpenAI 兼容 Chat Completions 服务，就能在浏览器里对话。可以试一句「把确定键绑定为将屏幕亮度设为 35%」，然后回到设备上按键试试。
 - **番茄钟** 可以选 15、25 或 45 分钟，确定键开始、暂停和继续。切回 Runner 后，再打开还能接着上次的进度。
 
+<p align="center">
+  <img src="assets/images/screenshots/runner-home-green.png" alt="Runner 绿色首页" width="200">
+  <img src="assets/images/screenshots/runner-home-orange.png" alt="Runner 橘色首页" width="200">
+  <img src="assets/images/screenshots/runner-settings.png" alt="Runner 设置页" width="200">
+</p>
+
+Runner 的绿色首页、橘色首页和设置页，来自 ESP32-C3 模拟器。截图取自较早构建，首页仍显示 AI PASSPORT。
+
 ## 设计思路
 
 ### 让首页留在设备上，让应用按需启动
@@ -69,6 +77,12 @@ python -m esptool --chip esp32c3 --port PORT write_flash 0x0 build/FoloToy-AI-Pa
 应用库共用 **4,160 KiB** 存储空间，单个应用上限为 **2,368 KiB**。网页会显示实际余量。想试玩法社区的固件，可以从网页导入符合格式要求的社区整包。详见 [Runner 使用指南](docs/development/passport-app-manager.zh_CN.md)。
 
 第一次用 ESP-Claw 时，在设备上切到连接页，打开屏幕显示的网页。在 **设备设置** 填入模型基地址（通常以 `/v1` 结尾）、模型名和所需的 API 密钥，并将 Passport 接入 2.4 GHz Wi-Fi。联网后在 **对话** 中发送第一条指令。详见 [ESP-Claw 配置和按键说明](docs/development/esp-claw-passport.zh_CN.md)。
+
+<p align="center">
+  <img src="assets/images/screenshots/esp-claw-chat.png" alt="ESP-Claw 的手机浏览器对话界面，截图使用测试模型。" width="340">
+</p>
+
+ESP-Claw 的手机浏览器对话界面，截图使用测试模型。
 
 ## 目录结构
 

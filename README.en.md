@@ -18,6 +18,14 @@ Found a community app you want to try? Once Runner is installed, import a compat
 - **ESP-Claw** brings Espressif’s agent to the Passport’s ESP32-C3. Open the device web page and connect an OpenAI-compatible Chat Completions endpoint that supports tool calls. Try asking it to set the OK button to dim the screen to 35%, then press the button on the Passport.
 - **Pomodoro** offers 15, 25, and 45 minute sessions. Press OK to start, pause, or resume. Your remaining time is saved when you return to Runner.
 
+<p align="center">
+  <img src="assets/images/screenshots/runner-home-green.png" alt="Runner green home screen" width="200">
+  <img src="assets/images/screenshots/runner-home-orange.png" alt="Runner orange home screen" width="200">
+  <img src="assets/images/screenshots/runner-settings.png" alt="Runner settings" width="200">
+</p>
+
+Runner’s green home screen, orange home screen, and settings. Captured from the ESP32-C3 emulator. The screenshots show an earlier build before the home screen label changed to Passport Runner.
+
 ## Design
 
 ### Keep the launcher on the device and start apps on demand
@@ -69,6 +77,12 @@ Flashing the merged image overwrites NVS and the app library. On an existing Run
 The shared app library holds **4,160 KiB**, with a **2,368 KiB** limit per app. The web page shows the available space. Runner can also import compatible merged images from the community. See the [Runner guide](docs/development/passport-app-manager.md).
 
 To get started with ESP-Claw, open its connection screen and visit the address shown on the Passport. In **Device Settings**, enter the model base URL (typically ending in `/v1`), the model name, and any required API key, then join a 2.4 GHz Wi-Fi network. Once connected, send your first instruction in **Chat**. See the [ESP-Claw guide](docs/development/esp-claw-passport.md).
+
+<p align="center">
+  <img src="assets/images/screenshots/esp-claw-chat.png" alt="ESP-Claw chat in a mobile browser with a test model." width="340">
+</p>
+
+ESP-Claw chat in a mobile browser with a test model.
 
 ## Project layout
 
