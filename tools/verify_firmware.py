@@ -125,6 +125,17 @@ def verify_flash_images(
     return image_sizes
 
 
+def validate_partition_ranges(partitions: list[Partition]) -> None:
+    labels = [item.label for item in partitions]
+    if len(labels) != len(set(labels)):
+        raise ValueError("partition labels must be unique")
+
+    ordered = sorted(partitions, key=lambda item: item.offset)
+    for left, right in zip(ordered, ordered[1:]):
+        if left.end > right.offset:
+            raise ValueError(f"partitions {left.label!r} and {right.label!r} overlap")
+
+
 def verify_firmware_layout(
     merged: bytes, build_dir: Path, partition_table_offset: int, app_offset: int
 ) -> list[Partition]:
@@ -137,15 +148,7 @@ def verify_firmware_layout(
     )
     if not found_md5:
         raise ValueError("partition table has no MD5 marker")
-
-    labels = [item.label for item in partitions]
-    if len(labels) != len(set(labels)):
-        raise ValueError("partition labels must be unique")
-
-    ordered = sorted(partitions, key=lambda item: item.offset)
-    for left, right in zip(ordered, ordered[1:]):
-        if left.end > right.offset:
-            raise ValueError(f"partitions {left.label!r} and {right.label!r} overlap")
+    validate_partition_ranges(partitions)
 
     matching_apps = [
         item for item in partitions if item.kind == 0 and item.offset == app_offset

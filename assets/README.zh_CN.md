@@ -15,6 +15,27 @@
 - 添加字库前评估 Flash 与内部 RAM 影响；ESP32-C3 无 PSRAM。
 - 不提交许可不允许分发的字库。
 
+应用管理器、ESP-Claw 和番茄钟屏幕使用 [passport_cjk_16.c](fonts/passport_cjk_16.c)，从 [Sans2.004](https://github.com/notofonts/noto-cjk/blob/523d033d6cb47f4a80c58a35753646f5c3608a78/Sans/OTF/SimplifiedChinese/NotoSansCJKsc-Regular.otf) 的 Noto Sans CJK SC Regular 生成 16 px、4 bpp 子集，按 [SIL 开源字体许可证](fonts/passport_cjk_16.OFL.txt) 分发。字库覆盖可打印 ASCII 和 LCD 界面用到的中文字。LVGL 直接从 Flash 读取 24,057 字节的点阵数据。
+
+使用 Pillow 12.1.1 和 fonttools 4.60.2，运行 `python3 tools/generate_passport_font.py --font /path/to/NotoSansCJKsc-Regular.otf` 重新生成。脚本检查源字体的字符映射，并逐像素校验打包后的字形。静态验证会将生成的子集与界面源码比对。
+
+## 网页资源
+
+管理器使用的 [HARICA 根证书](../main/runner/assets/harica_roots.pem) 取自 ESP-IDF 5.5.3 的完整证书包。
+管理器将 2021 年 RSA 根证书和用于交叉签名的 2015 年根证书加入精简包，用于验证
+MET Norway 天气接口。
+
+[passport_import.mjs](../main/runner/assets/passport_import.mjs) 在浏览器中提取并检查社区应用。
+[passport_hashes.mjs](../main/runner/assets/passport_hashes.mjs) 打包了
+[@noble/hashes 2.0.1](https://github.com/paulmillr/noble-hashes/tree/v2.0.1)
+的 MD5 和 SHA-256，脚本内附 MIT 许可。Passport 直接提供这两个脚本，局域网
+HTTP 页面可以离线导入文件。
+
+重新打包时，用 esbuild 0.25.12 处理一个模块，分别从 `@noble/hashes/legacy.js`
+和 `@noble/hashes/sha2.js` 导出 `md5` 和 `sha256`。使用
+`--bundle --minify --legal-comments=none --platform=browser --format=esm --target=es2020`
+并在产物开头附上完整的 MIT 许可。固件构建直接嵌入仓库中的打包产物。
+
 ## 图片（images）
 
 可复用的源图与生成的显示资产放在 `images/`。
@@ -25,6 +46,7 @@
 | [`images/readme-hardware-specs.png`](images/readme-hardware-specs.png) | 2172 × 724，PNG RGBA | 保留为可选技术参考图，不再用于首页主视觉。于 2026-09-17 使用内置图像生成工具为本仓库生成；已根据文档中的硬件能力契约核对图中的六项标签与参数。 |
 | [`images/logo-wordmark.png`](images/logo-wordmark.png) | 1648 × 336，PNG RGBA | 从仓库原始 `images/logo.png` 中精确裁切并去除背景的黑色字标；用于中英文项目 README 的浅色主题。 |
 | [`images/logo-wordmark-dark.png`](images/logo-wordmark-dark.png) | 1648 × 336，PNG RGBA | 提取字标的白色版本；README 使用 `<picture>` 在 GitHub 深色主题下显示。 |
+| [`main/runner/assets/passport_wordmark.a8`](../main/runner/assets/passport_wordmark.a8) | 176 × 36，原始 A8 | LCD 字标。用 Pillow 12.1.1 的 `Image.Resampling.LANCZOS` 缩小 `logo-wordmark.png` 的 Alpha 通道，将 `tobytes()` 输出写入文件。固件将 6,336 字节的蒙版存入 Flash，由 LVGL 着色。 |
 
 - 使用描述性命名，并记录尺寸、像素格式、转换步骤与目标路径。
 - 优先采用适合 240 × 320 RGB565 显示的格式，并纳入 Flash 与内部 RAM 考量。

@@ -20,6 +20,8 @@ This directory contains AI Passport engineering rules and reusable workflows, gr
 - [coding-conventions.md](engineering/coding-conventions.md): source-code and resource conventions, including Chinese font integration, blank/boxed text troubleshooting, and display acceptance.
 - [lvgl-chinese-fonts.md](engineering/lvgl-chinese-fonts.md): step-by-step CJK configuration, font generation/linking, fallback examples, glyph checks, and troubleshooting.
 - [wifi-provisioning.md](engineering/wifi-provisioning.md): Bluetooth-based Wi-Fi setup using the BLUFI reference branch, the companion mini program, and integration checks.
+- [ESP-Claw on AI Passport](esp-claw-passport.md): browser setup, model and key-script controls, and merged firmware.
+- [Passport Runner app manager](passport-app-manager.md): install and launch native apps, return to the manager, and build the firmware bundle.
 
 ## CI
 

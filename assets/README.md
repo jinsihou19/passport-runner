@@ -17,6 +17,29 @@ Store reusable font files and generated font sources in `fonts/`.
 - Check Flash and internal-RAM impact before adding a font; the ESP32-C3 has no PSRAM.
 - Do not commit fonts whose license does not permit redistribution.
 
+The app manager, ESP-Claw, and Pomodoro screens use [passport_cjk_16.c](fonts/passport_cjk_16.c), a 16 px, 4 bpp subset of Noto Sans CJK SC Regular from [Sans2.004](https://github.com/notofonts/noto-cjk/blob/523d033d6cb47f4a80c58a35753646f5c3608a78/Sans/OTF/SimplifiedChinese/NotoSansCJKsc-Regular.otf) under the [SIL Open Font License](fonts/passport_cjk_16.OFL.txt). It covers printable ASCII and the Chinese characters in the LCD UI. LVGL reads the 24,057 bytes of bitmap data from Flash.
+
+Regenerate with Pillow 12.1.1 and fonttools 4.60.2 using `python3 tools/generate_passport_font.py --font /path/to/NotoSansCJKsc-Regular.otf`. The generator checks the source cmap and verifies the packed glyphs pixel by pixel. The static gate checks the generated subset against the UI source.
+
+## Web assets
+
+The manager's [HARICA root certificates](../main/runner/assets/harica_roots.pem) come from
+ESP-IDF 5.5.3's full certificate bundle. The manager adds the 2021 RSA root
+and its 2015 cross-signing root to its smaller bundle for the MET Norway
+weather API.
+
+[passport_import.mjs](../main/runner/assets/passport_import.mjs) extracts and checks community
+apps in the browser. [passport_hashes.mjs](../main/runner/assets/passport_hashes.mjs) bundles
+the MD5 and SHA-256 exports of [@noble/hashes 2.0.1](https://github.com/paulmillr/noble-hashes/tree/v2.0.1)
+under its embedded MIT license. The script is served by the Passport so
+the importer works on the local HTTP page without an external service.
+
+To regenerate the bundle, use esbuild 0.25.12 with a module that exports
+`md5` from `@noble/hashes/legacy.js` and `sha256` from `@noble/hashes/sha2.js`.
+Use `--bundle --minify --legal-comments=none --platform=browser --format=esm --target=es2020`
+and prepend the package's complete MIT notice. Firmware builds embed the
+checked-in bundle directly.
+
 ## Images
 
 Store reusable source images and generated display assets in `images/`.
@@ -27,6 +50,7 @@ Store reusable source images and generated display assets in `images/`.
 | [`images/readme-hardware-specs.png`](images/readme-hardware-specs.png) | 2172 × 724, PNG RGBA | Optional technical infographic retained as a reference asset; it is no longer used as the homepage hero. Generated for this repository with the built-in image generation tool on 2026-09-17; the six labels and values were checked against the documented hardware contract. |
 | [`images/logo-wordmark.png`](images/logo-wordmark.png) | 1648 × 336, PNG RGBA | Transparent black wordmark extracted from the repository's original `images/logo.png`; embedded in both project README files for light backgrounds. |
 | [`images/logo-wordmark-dark.png`](images/logo-wordmark-dark.png) | 1648 × 336, PNG RGBA | White version of the extracted wordmark, used by the README `<picture>` element when GitHub is in dark mode. |
+| [`main/runner/assets/passport_wordmark.a8`](../main/runner/assets/passport_wordmark.a8) | 176 × 36, raw A8 | LCD wordmark. Resize `logo-wordmark.png`’s alpha channel with Pillow 12.1.1 (`Image.Resampling.LANCZOS`) and write the channel’s `tobytes()` output. The firmware stores the 6,336-byte mask in Flash and tints it in LVGL. |
 
 - Use descriptive names and document dimensions, pixel format, conversion steps, and destination.
 - Prefer formats suitable for the 240 × 320 RGB565 display and account for Flash and internal RAM.

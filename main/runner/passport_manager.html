@@ -1,0 +1,629 @@
+<!doctype html>
+<html lang="zh-CN">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>应用管理 · Passport Runner</title>
+<style>
+  :root { color-scheme: light; font: 16px/1.55 system-ui, sans-serif; color: #182334; background: #eff2f6; }
+  * { box-sizing: border-box; }
+  [hidden] { display: none !important; }
+  body { margin: 0; }
+  header { background: #12213a; color: #f0f5ff; }
+  .top, main { width: min(calc(100% - 32px), 920px); margin: auto; }
+  .top { padding: 16px 0; display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+  .top strong { letter-spacing: .02em; }
+  #connection { color: #c3d5f1; font-size: .875rem; }
+  main { padding: 40px 0; }
+  h1, h2, p { margin: 0; }
+  h1 { font-size: clamp(1.65rem, 4vw, 2.3rem); line-height: 1.2; }
+  h2 { font-size: 1.125rem; }
+  p, small { color: #4b5b70; }
+  .intro { margin: 0 0 24px; display: flex; flex-wrap: wrap; justify-content: space-between; align-items: start; gap: 12px; }
+  .intro p { margin-top: 8px; }
+  .grid { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); gap: 16px; align-items: start; }
+  .card { background: #fff; border: 1px solid #d8e0ec; border-radius: 16px; padding: 22px; min-width: 0; }
+  #storage { margin-bottom: 16px; }
+  .storage-values { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin: 12px 0; }
+  .storage-values dt { color: #4b5b70; font-size: .875rem; }
+  .storage-values dd { margin: 2px 0 0; font-size: clamp(1rem, 3.6vw, 1.375rem); font-weight: 700;
+                       font-variant-numeric: tabular-nums; }
+  #storage-free { color: #214cae; }
+  #storage-meter { display: block; width: 100%; height: 10px; }
+  #storage-meter::-webkit-meter-bar { background: #e7edf5; border: 0; }
+  #storage-meter::-webkit-meter-optimum-value { background: #275ad3; }
+  #storage-meter::-moz-meter-bar { background: #275ad3; }
+  #unlock { max-width: 420px; margin: 16px auto; }
+  #unlock p, .card h2 + p { margin-top: 8px; }
+  form { margin-top: 16px; display: grid; gap: 12px; }
+  label { display: grid; gap: 4px; font-weight: 600; font-size: .92rem; }
+  input { min-width: 0; max-width: 100%; width: 100%; border: 1px solid #a7b6cc; border-radius: 8px;
+          padding: 9px 10px; font: inherit; color: inherit; background: #fafcff; }
+  input[type=file] { font-size: .875rem; border-style: dashed; padding: 12px; }
+  .remember { display: flex; align-items: center; gap: 8px; font-weight: 500; }
+  .remember input { width: 16px; height: 16px; margin: 0; }
+  button { font: inherit; font-weight: 650; background: #275ad3; color: #fff; border: 1px solid transparent;
+           border-radius: 8px; padding: 8px 12px; min-height: 42px; cursor: pointer; justify-self: start; }
+  button:disabled { opacity: .6; cursor: default; }
+  button.secondary { background: #fff; color: #283d64; border-color: #bdc9dd; }
+  :focus-visible { outline: 2px solid #275ad3; outline-offset: 3px; }
+  #notice, #unlock-note { color: #244580; }
+  #import-note[data-error], #community-note[data-error] { color: #8c3040; }
+  #import-note:empty, #community-note:empty { display: none; }
+  #community-form { border-top: 1px solid #e2e8f1; padding-top: 16px; }
+  #community-form p { margin-top: 0; }
+  #import-name { display: flex; align-items: center; gap: 8px; }
+  #import-name input { flex: 1; }
+  #import-preview { display: grid; gap: 10px; }
+  #notice:not(:empty) { margin-bottom: 14px; }
+  #unlock-note:not(:empty) { margin-top: 12px; }
+  #apps { list-style: none; padding: 0; margin: 10px 0 0; }
+  #apps li { display: flex; align-items: center; justify-content: space-between; gap: 10px;
+             border-top: 1px solid #e2e8f1; padding: 12px 0; overflow-wrap: anywhere; }
+  #apps li:last-child { padding-bottom: 0; }
+  #apps small { display: block; }
+  #apps button { font-size: .875rem; white-space: nowrap; }
+  #app-pages { display: flex; justify-content: space-between; gap: 8px; margin-top: 16px; }
+  #development ol { margin: 12px 0 0; padding-inline-start: 1.25rem; }
+  #development li + li { margin-top: 6px; }
+  #development a { color: #214cae; }
+  .card a { color: #214cae; }
+  #weather-results { margin: 12px 0; }
+  #weather-status { margin-top: 12px; }
+  #weather-choice { min-width: 0; width: 100%; padding: 9px 10px; font: inherit; }
+  details { margin-top: 16px; }
+  summary { cursor: pointer; font-weight: 650; }
+  details p { margin-top: 8px; }
+  @media (max-width: 640px) {
+    main { padding-top: 24px; }
+    .grid { grid-template-columns: minmax(0, 1fr); }
+    .card { padding: 18px; }
+  }
+</style>
+<header><div class="top"><strong>Passport Runner</strong><span id="connection">等待连接</span></div></header>
+<main>
+  <section class="card" id="unlock" aria-labelledby="unlock-title">
+    <h1 id="unlock-title">连接 Passport</h1>
+    <p>在设备上打开「开发」，输入屏幕显示的 8 位连接码。</p>
+    <form id="unlock-form">
+      <label>连接码<input id="code" minlength="8" maxlength="8" pattern="[A-Za-z2-9]{8}" required autocomplete="off" autocapitalize="characters" spellcheck="false"></label>
+      <label class="remember"><input id="remember" type="checkbox">记住此浏览器（90 天）</label>
+      <button id="sign-in" type="submit">连接设备</button>
+    </form>
+    <p id="unlock-note" role="status"></p>
+  </section>
+  <div id="console" hidden>
+    <div class="intro">
+      <div><h1>应用管理</h1><p>从网页安装，在 Passport 上选择并打开应用。</p></div>
+      <button id="disconnect" class="secondary" type="button">退出</button>
+    </div>
+    <section class="card" id="storage" aria-labelledby="storage-title">
+      <h2 id="storage-title">应用存储</h2>
+      <div id="storage-summary" hidden>
+        <dl class="storage-values" aria-live="polite">
+          <div><dt>总空间</dt><dd id="storage-total"></dd></div>
+          <div><dt>已用空间</dt><dd id="storage-used"></dd></div>
+          <div><dt>剩余空间</dt><dd id="storage-free"></dd></div>
+        </dl>
+        <meter id="storage-meter" aria-label="应用存储使用量"></meter>
+      </div>
+      <p id="storage-unavailable" role="status" hidden>应用存储暂不可用。</p>
+    </section>
+    <p id="notice" role="status"></p>
+    <div class="grid">
+      <section class="card" aria-labelledby="upload-title">
+        <h2 id="upload-title">安装应用</h2>
+        <p id="install-limit" hidden></p>
+        <form id="upload-form">
+          <label>Passport 应用 .bin<input type="file" id="file" accept=".bin,application/octet-stream" required></label>
+          <button id="install" type="submit">安装到 Passport</button>
+        </form>
+        <details>
+          <summary>导入社区固件</summary>
+          <p>选择社区下载的完整 .bin，检查后再安装。</p>
+          <form id="import-form">
+            <label>社区固件 .bin<input type="file" id="import-file" accept=".bin,application/octet-stream" required></label>
+            <p id="import-note" role="status"></p>
+            <div id="import-preview" hidden>
+              <p id="import-info"></p>
+              <label for="import-title">应用名称</label>
+              <div id="import-name"><span>Passport-</span><input id="import-title" aria-describedby="import-name-hint"
+                pattern="[A-Za-z0-9_\x2D]{1,22}" maxlength="22" autocomplete="off" spellcheck="false"></div>
+              <p id="import-name-hint">可用字母、数字、连字符或下划线。</p>
+              <button id="import-install" type="submit">安装此应用</button>
+            </div>
+          </form>
+          <form id="community-form">
+            <label>从官网玩法链接导入
+              <input id="community-url" inputmode="url" required maxlength="512" autocapitalize="none"
+                     spellcheck="false" aria-describedby="community-hint community-note"
+                     placeholder="https://ai-passport.folotoy.cn/plays/1471/">
+            </label>
+            <p id="community-hint">设备连接可上网的 Wi-Fi 后，可自动下载、提取并安装。</p>
+            <button id="community-install" type="submit">下载并安装</button>
+            <p id="community-note" role="status"></p>
+          </form>
+        </details>
+      </section>
+      <section class="card" aria-labelledby="apps-title">
+        <h2 id="apps-title">设备上的应用</h2>
+        <p id="apps-empty" hidden>还没有安装应用。</p>
+        <ul id="apps"></ul>
+        <nav id="app-pages" aria-label="应用列表分页" hidden>
+          <button id="prev-apps" class="secondary" type="button">上一页</button>
+          <button id="next-apps" class="secondary" type="button">下一页</button>
+        </nav>
+      </section>
+    </div>
+    <details class="card" id="development">
+      <summary>开发 Passport 应用</summary>
+      <ol>
+        <li>在电脑上用 ESP-IDF 5.5.3 构建 ESP32-C3 工程，项目名以 <code>Passport-</code> 开头。</li>
+        <li>在<a href="#file">安装应用</a>选择构建生成的应用 <code>.bin</code>。</li>
+        <li>在 Passport 首页进入「应用」，选中刚安装的应用打开。</li>
+      </ol>
+    </details>
+    <details class="card" id="wifi-panel">
+      <summary>Wi-Fi 设置</summary>
+      <p>加入 2.4 GHz Wi-Fi 后，请按设备屏幕上的新地址重新打开网页。</p>
+      <form id="wifi-form">
+        <label>网络名称<input id="ssid" required maxlength="32" autocomplete="off"></label>
+        <label>网络密码<input id="password" type="password" maxlength="64" autocomplete="off"></label>
+        <button id="connect" class="secondary" type="submit">连接 Wi-Fi</button>
+      </form>
+    </details>
+    <details class="card" id="weather-panel">
+      <summary>首页天气</summary>
+      <p id="weather-city"></p>
+      <p>Passport 按所选城市向天气服务查询，回到首页后自动更新。</p>
+      <form id="weather-search">
+        <label>城市<input id="weather-query" required minlength="2" maxlength="80" placeholder="例如 台北或 Shanghai"></label>
+        <button id="weather-find" class="secondary" type="submit">搜索城市</button>
+      </form>
+      <form id="weather-results" hidden>
+        <label>匹配城市<select id="weather-choice" required></select></label>
+        <button id="weather-save" type="submit">设为天气城市</button>
+      </form>
+      <button id="weather-clear" class="secondary" type="button" hidden>关闭天气</button>
+      <p id="weather-status" role="status"></p>
+      <p><small>气温和天气由 <a href="https://api.met.no/weatherapi/locationforecast/2.0/documentation"
+        target="_blank" rel="noopener noreferrer">MET Norway</a> 提供，已取整和翻译。
+        <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener noreferrer">CC BY 4.0</a> ·
+        <a href="https://open-meteo.com/en/docs/geocoding-api" target="_blank" rel="noopener noreferrer">城市搜索</a></small></p>
+    </details>
+  </div>
+</main>
+<script>
+  const $ = id => document.getElementById(id);
+  const errors = {
+    code: '连接码不正确，或设备已重启。请查看设备屏幕。',
+    expired: '请使用屏幕上的连接码重新连接。',
+    rate: '连接尝试过于频繁，请等 5 秒再试。',
+    image: '应用文件无效。请选择为 Passport 构建且通过校验的应用 .bin。',
+    size: '应用文件不完整。',
+    app_too_large: '文件超出单个应用大小上限。',
+    space: '应用存储空间不足。请移除应用后重试。',
+    busy: '设备正在处理其他操作，请稍后再试。',
+    duplicate: '此应用已安装。更新时请先移除旧版本。',
+    missing: '应用已移除。请刷新网页查看列表。',
+    upload: '上传中断。请检查网络后重试。',
+    invalid: '请检查文件或 Wi-Fi 设置。',
+    unavailable: '设备暂时无法完成操作。',
+    disconnected: '连接中断。请查看 Passport 屏幕上的地址。',
+    bundle_size: '社区固件整包最多 8 MiB。',
+    bundle_format: '请选择社区下载的合并固件 .bin。',
+    bundle_table: '固件分区表无效。请重新下载完整固件。',
+    bundle_image: '固件中的应用校验未通过。请重新下载。',
+    bundle_target: '这个应用不是为 Passport 的 ESP32-C3 构建的。',
+    bundle_app_count: '目前只支持包含一个应用的社区固件。',
+    bundle_extra: '这个固件包含额外分区、资源或签名，无法单独安装应用。',
+    bundle_name: '应用名称请输入 1 到 22 位字母、数字、连字符或下划线。',
+    bundle_read: '未能读取固件。请重新选择文件。',
+    community_link: '请粘贴 AI Passport 官网的玩法详情链接。',
+    community_network: '请先让 Passport 连接可上网的 Wi-Fi，再从链接安装。',
+    community_clock: '设备时间尚未同步。请检查浏览器的系统时间后重试。',
+    community_missing: '官网未找到这个玩法或它的固件。',
+    community_format: '这个玩法没有可导入的社区合并固件。',
+    community_metadata: '未能读取官网的固件信息。可改用本地文件导入。',
+    community_fetch: '未能从官网下载。请检查 Passport 的 Wi-Fi 后重试。',
+    community_integrity: '下载的固件与官网发布信息不符，请重试。'
+  };
+  let code = '';
+  let state;
+  let working = false;
+  let catalogue = '';
+  let switchPending = false;
+  let community;
+  let inspected;
+  let weatherSearching = false;
+  let weatherMatches = [];
+
+  function formatBytes(size) {
+    if (size < 1024) return `${size} B`;
+    if (size < 1048576) return `${Math.floor(size / 1024)} KiB`;
+    return `${(size / 1048576).toFixed(2)} MiB`;
+  }
+
+  function formatKiB(bytes) {
+    return `${(bytes / 1024).toLocaleString('zh-CN')} KiB`;
+  }
+
+  function renderStorage({manager_ready, total_bytes, free_bytes}) {
+    $('storage-summary').hidden = !manager_ready;
+    $('storage-unavailable').hidden = manager_ready;
+    if (!manager_ready) return;
+    const used = total_bytes - free_bytes;
+    $('storage-total').textContent = formatKiB(total_bytes);
+    $('storage-used').textContent = formatKiB(used);
+    $('storage-free').textContent = formatKiB(free_bytes);
+    const meter = $('storage-meter');
+    meter.max = total_bytes;
+    meter.value = used;
+  }
+
+  function apiHeaders() {
+    const headers = {'X-Passport-Request': '1'};
+    if (code) headers['X-Passport-Code'] = code;
+    return headers;
+  }
+
+  async function api(path, method = 'GET', body) {
+    const headers = apiHeaders();
+    if (body instanceof File) headers['Content-Type'] = 'application/octet-stream';
+    else if (body !== undefined) {
+      headers['Content-Type'] = 'application/json';
+      body = JSON.stringify(body);
+    }
+    let response, result;
+    try {
+      response = await fetch('/api/' + path, {
+        method, headers, body, cache: 'no-store',
+        signal: body instanceof File ? undefined : AbortSignal.timeout(6500)
+      });
+      result = await response.json();
+    } catch {
+      throw new Error('disconnected');
+    }
+    if (!response.ok) throw new Error(result.error || 'unavailable');
+    // The manager and ESP-Claw share the address, but each serves its own page.
+    if (result.web_app === 'claw') {
+      location.reload();
+      throw new Error('disconnected');
+    }
+    return result;
+  }
+
+  function controls() {
+    const unavailable = working || switchPending || state?.busy || state?.changing;
+    $('install').disabled = unavailable || !state?.manager_ready;
+    $('import-install').disabled = unavailable || !state?.manager_ready || !inspected;
+    $('import-file').disabled = working || switchPending;
+    $('import-title').disabled = working;
+    $('community-url').disabled = working || switchPending;
+    $('community-install').disabled = unavailable || !state?.manager_ready;
+    $('connect').disabled = unavailable || state?.network === 'connecting';
+    $('weather-find').disabled = working || weatherSearching || !state;
+    $('weather-save').disabled = working || weatherSearching || !state;
+    $('weather-clear').disabled = working || !state;
+    for (const button of $('apps').querySelectorAll('button')) button.disabled = unavailable;
+    $('prev-apps').disabled = unavailable || !state?.apps_offset;
+    $('next-apps').disabled = unavailable || !state || state.apps_offset + state.apps.length >= state.app_count;
+    $('disconnect').disabled = working || switchPending;
+  }
+
+  function render(next) {
+    state = next;
+    $('weather-city').textContent = next.weather_city ? '当前城市 ' + next.weather_city : '尚未设置城市';
+    $('weather-clear').hidden = !next.weather_city;
+    const network = {setup: '配网热点', online: 'Wi-Fi 已连接', connecting: '正在连接 Wi-Fi', failed: '网络不可用'};
+    $('connection').textContent = network[next.network] || '正在启动';
+    renderStorage(next);
+    $('install-limit').hidden = !next.manager_ready;
+    if (next.manager_ready) $('install-limit').textContent = `单个应用最多 ${formatKiB(next.max_app_bytes)}。`;
+    $('apps-empty').hidden = !next.manager_ready || next.app_count !== 0;
+    $('app-pages').hidden = next.app_count <= next.page_size;
+    const updated = JSON.stringify(next.apps);
+    if (catalogue !== updated) {
+      catalogue = updated;
+      $('apps').replaceChildren(...next.apps.map(app => {
+        const row = document.createElement('li');
+        const label = document.createElement('div');
+        const name = document.createElement('strong');
+        const detail = document.createElement('small');
+        name.textContent = app.name === 'Passport-Pomodoro' ? '番茄钟' : app.name.slice(9);
+        detail.textContent = [formatBytes(app.size), app.version].filter(Boolean).join(' · ');
+        label.append(name, detail);
+        row.append(label);
+        const remove = document.createElement('button');
+        remove.type = 'button';
+        remove.className = 'secondary';
+        remove.textContent = '移除';
+        remove.setAttribute('aria-label', '移除 ' + name.textContent);
+        remove.onclick = () => {
+          if (confirm(`移除「${name.textContent}」？`)) run(async () => {
+            await api('apps', 'DELETE', {name: app.name});
+            $('notice').textContent = '应用已移除。';
+          });
+        };
+        row.append(remove);
+        return row;
+      }));
+    }
+    if (next.wifi_error === 'wifi_timeout') $('notice').textContent = '连接超时。设备已返回配网热点。';
+    if (next.wifi_error === 'wifi_save') $('notice').textContent = 'Wi-Fi 已连接，保存失败。';
+    controls();
+  }
+
+  function disconnect(message) {
+    code = '';
+    state = undefined;
+    switchPending = false;
+    resetImport();
+    $('community-form').reset();
+    communityNote('');
+    weatherMatches = [];
+    $('weather-results').hidden = true;
+    $('connection').textContent = '等待连接';
+    $('unlock-note').textContent = message;
+    $('console').hidden = true;
+    $('unlock').hidden = false;
+  }
+
+  async function run(action, offset = state?.apps_offset || 0) {
+    if (working || switchPending) return;
+    working = true;
+    controls();
+    $('notice').textContent = '';
+    try {
+      await action?.();
+      if (state && !switchPending) render(await api('state?offset=' + offset));
+    } catch (error) {
+      if (error.message === 'code') disconnect(errors.expired);
+      else $('notice').textContent = errors[error.message] || errors.unavailable;
+    } finally {
+      working = false;
+      controls();
+    }
+  }
+
+  async function connect(manual) {
+    if (working) return;
+    working = true;
+    $('sign-in').disabled = true;
+    if (manual) code = $('code').value.toUpperCase();
+    try {
+      let next = await api('state');
+      let notice = '';
+      if (manual && $('remember').checked) {
+        const temporaryCode = code;
+        try {
+          await api('session', 'POST');
+          code = '';
+          next = await api('state');
+        } catch {
+          code = temporaryCode;
+          notice = '这次已连接，但未能记住浏览器。';
+        }
+      }
+      render(next);
+      $('code').value = '';
+      $('unlock').hidden = true;
+      $('console').hidden = false;
+      $('notice').textContent = notice;
+    } catch (error) {
+      disconnect(!manual && error.message === 'code' ? '' : errors[error.message] || errors.unavailable);
+    } finally {
+      working = false;
+      $('sign-in').disabled = false;
+      controls();
+    }
+  }
+
+  $('unlock-form').onsubmit = event => {
+    event.preventDefault();
+    connect(true);
+  };
+  $('disconnect').onclick = () => run(async () => {
+    await api('session', 'DELETE');
+    disconnect('');
+  });
+  async function install(file, note = message => { $('notice').textContent = message; }) {
+    render(await api('state?offset=' + state.apps_offset));
+    if (!state.manager_ready) throw new Error('unavailable');
+    if (file.size > state.max_app_bytes) throw new Error('app_too_large');
+    if (file.size > state.free_bytes) throw new Error('space');
+    note('正在上传并校验应用…');
+    await api('apps', 'POST', file);
+    note('安装完成。请在 Passport 上选择应用，按确定键打开。');
+  }
+
+  $('upload-form').onsubmit = event => {
+    event.preventDefault();
+    const file = $('file').files[0];
+    if (!file?.size) {
+      $('notice').textContent = errors.size;
+      return;
+    }
+    run(async () => {
+      await install(file);
+      $('file').value = '';
+    });
+  };
+
+  function importNote(message, error = false) {
+    $('import-note').textContent = message;
+    $('import-note').toggleAttribute('data-error', error);
+  }
+
+  function resetImport(message = '') {
+    $('import-form').reset();
+    $('import-title').required = false;
+    $('import-preview').hidden = true;
+    inspected = undefined;
+    importNote(message);
+  }
+
+  $('import-file').onchange = async () => {
+    if (working || switchPending) return;
+    const file = $('import-file').files[0];
+    inspected = undefined;
+    $('import-preview').hidden = true;
+    $('import-title').required = false;
+    if (!file) { importNote(''); controls(); return; }
+    working = true;
+    controls();
+    importNote('正在检查固件…');
+    try {
+      community ??= await import('/passport_import.mjs');
+      const info = await community.inspectCommunity(file, state);
+      $('import-title').value = community.suggestedName(info.name, file.name, info.image);
+      $('import-info').textContent = `应用大小 ${formatBytes(info.image.length)} · 版本 ${info.version}`;
+      inspected = info;
+      $('import-preview').hidden = false;
+      $('import-title').required = true;
+      importNote(info.image.length > state.free_bytes ? errors.space : '', info.image.length > state.free_bytes);
+    } catch (error) {
+      importNote(errors[error.message] || errors.bundle_read, true);
+    } finally {
+      working = false;
+      controls();
+    }
+  };
+  $('import-form').onsubmit = event => {
+    event.preventDefault();
+    if (!inspected) return;
+    run(async () => {
+      try {
+        importNote('正在准备应用…');
+        const name = $('import-title').value.trim();
+        const image = community.makeUpload(inspected.image, name);
+        importNote('正在上传应用…');
+        await install(new File([image], 'Passport-' + name + '.bin', {type: 'application/octet-stream'}));
+        resetImport('安装完成。');
+      } catch (error) {
+        if (error.message === 'code') throw error;
+        $('notice').textContent = '';
+        importNote(errors[error.message] || errors.unavailable, true);
+      }
+    });
+  };
+
+  function communityNote(message, error = false) {
+    $('community-note').textContent = message;
+    $('community-note').toggleAttribute('data-error', error);
+  }
+
+  async function communityRequest(query) {
+    const headers = apiHeaders();
+    headers['X-Passport-Time'] = String(Math.floor(Date.now() / 1000));
+    let response;
+    try {
+      response = await fetch('/api/community?' + query, {
+        headers, cache: 'no-store', signal: AbortSignal.timeout(95000)
+      });
+    } catch {
+      throw new Error('community_fetch');
+    }
+    if (!response.ok) {
+      const body = await response.json().catch(() => null);
+      throw new Error(body?.error || 'community_fetch');
+    }
+    return response;
+  }
+
+  $('community-url').oninput = () => communityNote('');
+  $('community-form').onsubmit = event => {
+    event.preventDefault();
+    const url = $('community-url').value;
+    run(async () => {
+      try {
+        community ??= await import('/passport_import.mjs');
+        const key = community.officialPlayKey(url);
+        communityNote('正在获取玩法信息…');
+        const metadata = await communityRequest('play=' + key);
+        const data = await metadata.json().catch(() => { throw new Error('community_metadata'); });
+        const firmware = community.officialFirmware(data, key);
+        communityNote(`正在下载并检查《${firmware.title}》…`);
+        const response = await communityRequest('firmware=' + firmware.slug);
+        const info = await community.inspectOfficial(response, firmware, state);
+        const name = community.suggestedName(info.name, firmware.slug + '.bin', info.image);
+        const image = community.makeUpload(info.image, name);
+        await install(new File([image], 'Passport-' + name + '.bin', {type: 'application/octet-stream'}), communityNote);
+        $('community-form').reset();
+        communityNote(`《${firmware.title}》已安装，在 Passport 上显示为 ${name}。`);
+      } catch (error) {
+        if (error.message === 'code') throw error;
+        communityNote(errors[error.message] || errors.community_fetch, true);
+      }
+    });
+  };
+
+  $('prev-apps').onclick = () => run(null, Math.max(0, state.apps_offset - state.page_size));
+  $('next-apps').onclick = () => run(null, state.apps_offset + state.apps.length);
+  $('weather-search').onsubmit = async event => {
+    event.preventDefault();
+    if (weatherSearching || working || !state) return;
+    const name = $('weather-query').value.trim();
+    if (name.length < 2) {
+      $('weather-status').textContent = '请输入至少两个字的城市名。';
+      return;
+    }
+    weatherSearching = true;
+    controls();
+    $('weather-results').hidden = true;
+    $('weather-status').textContent = '正在搜索城市…';
+    try {
+      const url = new URL('https://geocoding-api.open-meteo.com/v1/search');
+      url.search = new URLSearchParams({name, language: 'zh', count: '8'});
+      const response = await fetch(url, {signal: AbortSignal.timeout(8000)});
+      if (!response.ok) throw new Error();
+      const result = await response.json();
+      if (!state) return;
+      weatherMatches = (result.results || []).filter(city =>
+        typeof city.name === 'string' && city.name &&
+        Number.isFinite(city.latitude) && Number.isFinite(city.longitude));
+      $('weather-choice').replaceChildren(...weatherMatches.map((city, index) =>
+        new Option([...new Set([city.name, city.admin1, city.country].filter(Boolean))].join(' · '), index)));
+      $('weather-results').hidden = !weatherMatches.length;
+      $('weather-status').textContent = weatherMatches.length ? '' : '未找到匹配的城市。';
+    } catch {
+      if (state) $('weather-status').textContent = '城市搜索暂不可用，请重试。';
+    } finally {
+      weatherSearching = false;
+      controls();
+    }
+  };
+
+  $('weather-results').onsubmit = event => {
+    event.preventDefault();
+    const city = weatherMatches[$('weather-choice').value];
+    if (!city) return;
+    run(async () => {
+      let label = '';
+      const encoder = new TextEncoder();
+      for (const character of city.name.trim()) {
+        if (encoder.encode(label + character).length >= 64) break;
+        label += character;
+      }
+      await api('weather/city', 'POST', {city: label, latitude: Math.round(city.latitude * 1000),
+        longitude: Math.round(city.longitude * 1000)});
+      $('weather-results').hidden = true;
+      $('weather-status').textContent = '城市已保存。回到 Passport 首页后会自动更新。';
+    });
+  };
+  $('weather-clear').onclick = () => run(async () => {
+    await api('weather/city', 'DELETE');
+    $('weather-results').hidden = true;
+    $('weather-status').textContent = '天气已关闭。';
+  });
+  $('wifi-form').onsubmit = event => {
+    event.preventDefault();
+    run(async () => {
+      await api('wifi', 'POST', {ssid: $('ssid').value, password: $('password').value});
+      $('password').value = '';
+      switchPending = true;
+      $('notice').textContent = '设备正在切换网络。请使用屏幕显示的地址重新打开网页。';
+    });
+  };
+  connect(false);
+</script>
+</html>

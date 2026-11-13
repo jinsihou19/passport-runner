@@ -1,0 +1,445 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>AI Passport · ESP-Claw</title>
+  <style>
+    :root {
+      color-scheme: light;
+      font: 16px/1.55 "DM Sans", system-ui, "PingFang SC", "Microsoft YaHei", sans-serif;
+      color: #152625;
+      background: #eef1ea;
+      --ink: #152625;
+      --muted: #4e615c;
+      --line: #d4dcd3;
+      --paper: #fcfdf9;
+      --mint: #a8ebcf;
+      --teal: #17644f;
+    }
+    * { box-sizing: border-box; }
+    [hidden] { display: none !important; }
+    body { margin: 0; }
+    header {
+      min-height: 72px; padding: 0 max(22px, calc((100vw - 1072px) / 2));
+      display: flex; align-items: center; justify-content: space-between; gap: 16px;
+      background: #152625; color: #f5faf5;
+    }
+    .brand { display: flex; align-items: center; gap: 12px; font-weight: 750; letter-spacing: -.02em; }
+    .mark { width: 24px; height: 27px; border: 2px solid var(--mint); border-radius: 6px 6px 12px 12px; }
+    .mark::after { content: ""; display: block; width: 7px; height: 7px; margin: 5px auto; background: var(--mint); border-radius: 50%; }
+    .brand small { color: #bed0c7; padding-left: 10px; border-left: 1px solid #517069; font-size: .76rem; font-weight: 500; }
+    main { width: min(1072px, calc(100% - 40px)); margin: 32px auto 56px; }
+    h1, h2, p, pre { margin: 0; }
+    h1 { font-size: clamp(1.5rem, 3.6vw, 2.2rem); letter-spacing: -.04em; line-height: 1.2; }
+    h2 { font-size: 1.08rem; }
+    p + p { margin-top: .65em; }
+    .muted { color: var(--muted); }
+    .sub { font-size: .88rem; color: var(--muted); }
+    .card { border: 1px solid var(--line); background: var(--paper); border-radius: 16px; }
+    .unlock { width: min(470px, 100%); padding: clamp(22px, 5vw, 36px); margin: 9vh auto 0; }
+    .unlock p { margin: 12px 0 22px; }
+    .grid { display: grid; grid-template-columns: 256px minmax(0, 1fr); gap: 22px; align-items: start; }
+    aside { background: #203632; color: #f1f8f0; border-radius: 16px; padding: 22px; }
+    aside .sub { color: #bdd1c8; }
+    aside h2 { font-size: 1.32rem; margin: 4px 0 16px; }
+    dl { margin: 0; }
+    dl div { padding: 12px 0; border-top: 1px solid #48645c; }
+    dt { color: #bdd1c8; font-size: .79rem; }
+    dd { margin: 2px 0 0; overflow-wrap: anywhere; }
+    .mono { font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, monospace; font-size: .87rem; }
+    .connection::before { content: ""; display: inline-block; background: currentColor; width: 7px; height: 7px; border-radius: 50%; margin-right: 7px; vertical-align: .13em; }
+    .connection { color: #d2f6e5; font-size: .82rem; }
+    .workspace { min-width: 0; }
+    nav { display: flex; gap: 8px; margin-bottom: 12px; }
+    nav button { padding: 8px 17px; border: 1px solid transparent; color: var(--muted); }
+    nav button[aria-pressed="true"] { background: var(--paper); border-color: var(--line); color: var(--ink); }
+    .panel { padding: clamp(17px, 4vw, 28px); }
+    .panel-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+    .history { min-height: 180px; margin: 23px 0 16px; }
+    .empty { background: #edf6ee; border-radius: 12px; padding: 20px; }
+    .empty p { margin-top: 8px; }
+    .samples { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 14px; }
+    .samples button { text-align: left; background: var(--paper); font-size: .86rem; }
+    .turn { white-space: pre-wrap; overflow-wrap: anywhere; }
+    .prompt { padding: 12px 15px; background: #e6f1e9; border-radius: 11px; margin-bottom: 15px; }
+    .reply { padding: 2px 8px; }
+    .reply:empty, .prompt:empty, .note:empty { display: none; }
+    form { display: grid; gap: 12px; }
+    label { display: grid; gap: 5px; font-size: .9rem; font-weight: 650; }
+    input, textarea {
+      color: var(--ink); background: #fff; font: inherit; width: 100%; min-width: 0;
+      border: 1px solid #b7c6bd; border-radius: 8px; padding: 10px 11px;
+    }
+    textarea { resize: vertical; min-height: 88px; }
+    button {
+      font: inherit; color: inherit; background: transparent; cursor: pointer; min-height: 40px;
+      border: 1px solid var(--line); border-radius: 8px; padding: 7px 13px; font-weight: 650;
+    }
+    button:hover:not(:disabled) { border-color: var(--teal); }
+    button.primary { border-color: #17644f; background: #17644f; color: #fff; }
+    button.primary:hover:not(:disabled) { background: #124f3f; }
+    button:disabled { cursor: default; opacity: .5; }
+    :focus-visible { outline: 2px solid #188469; outline-offset: 3px; }
+    .actions { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+    .actions .sub { margin-right: auto; }
+    .note { margin: 10px 0; font-size: .92rem; color: #735116; }
+    .settings .panel + .panel { margin-top: 12px; }
+    .settings h2 + p { margin-top: 5px; }
+    .settings form, .settings pre, .settings .actions { margin-top: 14px; }
+    .inline { display: flex; align-items: center; font-weight: 500; }
+    .inline input { width: 16px; height: 16px; }
+    pre { background: #edf4ee; padding: 12px; border-radius: 8px; white-space: pre-wrap; overflow-wrap: anywhere; }
+    @media (max-width: 690px) {
+      main { margin-top: 18px; width: calc(100% - 28px); }
+      header { padding: 0 16px; min-height: 62px; }
+      .grid { grid-template-columns: 1fr; gap: 14px; }
+      aside { padding: 14px 17px; }
+      aside h2 { margin-bottom: 10px; font-size: 1.09rem; }
+      dl { display: grid; grid-template-columns: 1fr auto; gap: 8px 14px; }
+      dl div { padding: 7px 0 1px; }
+      dl div:last-child { grid-column: 1 / -1; }
+      input, textarea { font-size: 16px; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="brand"><span class="mark" aria-hidden="true"></span>AI Passport <small>ESP-Claw</small></div>
+    <span id="connection" class="connection">等待连接</span>
+  </header>
+  <main>
+    <section id="unlock" class="unlock card" aria-labelledby="unlock-title">
+      <h1 id="unlock-title">连接你的 Passport</h1>
+      <p class="muted">在设备上切到连接页，输入屏幕显示的 8 位连接码。</p>
+      <form id="unlock-form">
+        <label>连接码 <input id="code" class="mono" type="password" minlength="8" maxlength="8" pattern="[A-Za-z2-9]{8}" spellcheck="false" autocomplete="off" required></label>
+        <label class="inline"><input id="remember" type="checkbox">记住此浏览器（90 天）</label>
+        <button id="sign-in" class="primary">连接设备</button>
+      </form>
+      <p id="unlock-note" class="note" role="status"></p>
+    </section>
+    <div id="console" class="grid" hidden>
+      <aside aria-label="设备状态">
+        <p id="net-state" class="sub">正在连接</p>
+        <h2>你的 Passport</h2>
+        <dl>
+          <div><dt>设备地址</dt><dd id="address" class="mono">—</dd></div>
+          <div><dt>电量</dt><dd id="battery">—</dd></div>
+          <div><dt>当前模型</dt><dd id="current-model">未配置</dd></div>
+        </dl>
+      </aside>
+      <div class="workspace">
+        <nav aria-label="工作区">
+          <button type="button" id="chat-tab" aria-pressed="true">对话</button>
+          <button type="button" id="settings-tab" aria-pressed="false">设备设置</button>
+          <button type="button" id="disconnect">退出</button>
+        </nav>
+        <p id="notice" class="note" role="status"></p>
+        <section id="chat" class="card panel" aria-labelledby="chat-title">
+          <div class="panel-head">
+            <h1 id="chat-title">与设备对话</h1>
+            <button id="reset-chat" type="button">新会话</button>
+          </div>
+          <div class="history" aria-live="polite">
+            <div id="empty" class="empty">
+              <h2>给 Passport 一条指令</h2>
+              <p id="chat-hint" class="sub">问问设备状态，或者把一段动作保存到确定键。</p>
+              <div class="samples">
+                <button type="button" data-prompt="帮我读取设备的剩余电量">查看电量</button>
+                <button type="button" data-prompt="请把确定键绑定为将屏幕亮度设到 35% 的 Lua 脚本">绑定按键动作</button>
+              </div>
+            </div>
+            <div id="prompt" class="turn prompt"></div>
+            <div id="reply" class="turn reply"></div>
+          </div>
+          <form id="chat-form">
+            <label>消息 <textarea id="message" maxlength="768" placeholder="例如：把屏幕亮度调到 60%" required></textarea></label>
+            <div class="actions">
+              <span id="chat-limit" class="sub">设备保留最近一轮上下文</span>
+              <button id="send" class="primary" disabled>发送</button>
+            </div>
+          </form>
+        </section>
+        <div id="settings" class="settings" hidden>
+          <section class="card panel" aria-labelledby="wifi-title">
+            <h2 id="wifi-title">Wi-Fi 网络</h2>
+            <p class="sub">连接 2.4 GHz 网络。切换时浏览器会断开，请按设备屏幕上的地址重新打开。</p>
+            <form id="wifi-form">
+              <label>网络名称 <input id="ssid" maxlength="32" autocomplete="off" required></label>
+              <label>网络密码 <input id="wifi-password" type="password" maxlength="64" autocomplete="off" placeholder="开放网络可留空"></label>
+              <div class="actions">
+                <button class="primary">连接网络</button>
+                <button id="clear-wifi" type="button">清除已保存网络</button>
+              </div>
+            </form>
+          </section>
+          <section class="card panel" aria-labelledby="model-title">
+            <h2 id="model-title">模型服务</h2>
+            <p class="sub">使用支持工具调用的 OpenAI 兼容接口，填写基地址（通常以 /v1 结尾）。</p>
+            <form id="model-form">
+              <label>基地址 <input id="base-url" class="mono" type="url" maxlength="192" placeholder="https://api.example.com/v1" spellcheck="false" required></label>
+              <label>模型名 <input id="model-name" class="mono" maxlength="96" spellcheck="false" required></label>
+              <label>API 密钥 <input id="api-key" type="password" maxlength="384" autocomplete="off"></label>
+              <label class="inline"><input id="replace-key" type="checkbox">清除已保存的密钥</label>
+              <p id="key-hint" class="sub"></p>
+              <div class="actions"><button class="primary">保存模型</button></div>
+            </form>
+          </section>
+          <section class="card panel" aria-labelledby="rule-title">
+            <h2 id="rule-title">确定键脚本</h2>
+            <p id="rule-state" class="sub">暂无脚本。可以在对话中让模型绑定一个本地动作。</p>
+            <pre id="script" class="mono" hidden></pre>
+            <div class="actions">
+              <button id="run-rule" type="button" disabled>运行一次</button>
+              <button id="clear-rule" type="button" disabled>删除脚本</button>
+            </div>
+          </section>
+        </div>
+      </div>
+    </div>
+  </main>
+  <script>
+    const byId = id => document.getElementById(id);
+    const value = id => byId(id).value;
+    const text = (id, content) => {
+      const node = byId(id);
+      if (node.textContent !== content) node.textContent = content;
+    };
+    const show = (id, visible) => { byId(id).hidden = !visible; };
+    const encoder = new TextEncoder();
+    const errors = {
+      code: "连接码不正确，或设备已重启。请查看屏幕。",
+      expired: "请使用屏幕上的连接码重新连接。",
+      rate: "连接尝试过于频繁，请等 5 秒再试。",
+      busy: "设备正在处理任务，请稍后再试。",
+      invalid: "请检查输入长度、密码格式或接口地址。",
+      unconfigured: "请先完成模型设置或绑定脚本。",
+      network: "设备连上 Wi-Fi 后才能请求模型。",
+      clock: "设备时间尚未同步。请检查手机或电脑的系统时间，再试一次。",
+      unavailable: "设备暂时无法完成操作，请稍后再试。",
+      disconnected: "连接中断。请确认与设备在同一网络，并查看设备屏幕上的地址。"
+    };
+    let code = "";
+    let state;
+    let timer;
+    let working = false;
+    let networkSwitch = false;
+    let session = 0;
+
+    async function api(path, method = "GET", data) {
+      const headers = { "X-Passport-Request": "1" };
+      if (code) headers["X-Passport-Code"] = code;
+      if (data !== undefined) headers["Content-Type"] = "application/json";
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 6500);
+      try {
+        const response = await fetch("/api/" + path, {
+          method, headers, body: data === undefined ? undefined : JSON.stringify(data),
+          signal: controller.signal, cache: "no-store"
+        });
+        const json = await response.json();
+        if (!response.ok) throw new Error(json.error || "unavailable");
+        if (json.web_app === "manager") {
+          location.reload();
+          throw new Error("disconnected");
+        }
+        return json;
+      } catch (error) {
+        if (Object.hasOwn(errors, error.message)) throw error;
+        throw new Error("disconnected");
+      } finally {
+        clearTimeout(timeout);
+      }
+    }
+
+    function tab(name) {
+      show("chat", name === "chat");
+      show("settings", name === "settings");
+      byId("chat-tab").setAttribute("aria-pressed", name === "chat");
+      byId("settings-tab").setAttribute("aria-pressed", name === "settings");
+    }
+
+    function render(next) {
+      state = next;
+      const network = { starting: "正在启动", setup: "配网模式", connecting: "正在连接 Wi-Fi", online: "Wi-Fi 已连接", failed: "网络不可用" };
+      const label = network[next.network] || "等待连接";
+      const busy = working || networkSwitch || next.changing || next.agent === "busy" || next.rule === "running";
+      text("connection", label);
+      text("net-state", label);
+      text("address", next.ip ? "http://" + next.ip : "—");
+      text("battery", next.battery < 0 ? "不可读" : next.battery + "%");
+      text("current-model", next.model || "未配置");
+      text("key-hint", next.key_saved
+        ? "基地址相同时留空可保留已存密钥。更换地址会清除旧密钥。"
+        : "局域网 HTTP 仅支持私有 IPv4 地址。公网地址请用 HTTPS。");
+      text("chat-hint", next.network !== "online" ? "先在设备设置里连接 Wi-Fi。" :
+        !next.model ? "先在设备设置里添加模型。" : "问问设备状态，或者把一段动作保存到确定键。");
+      text("prompt", next.prompt || "");
+      text("reply", next.agent === "busy" ? "设备正在执行…" :
+        next.agent === "error" ? "请求失败。请检查模型设置或网络。\n" + next.error : next.reply || "");
+      show("empty", !next.prompt);
+      text("script", next.script || "");
+      show("script", Boolean(next.script));
+      const rule = { ready: "脚本已保存。在设备助手页短按确定键即可运行。", running: "脚本运行中…",
+        done: "上次运行成功。", error: "脚本运行失败。" + (next.rule_error || ""), empty: "暂无脚本。可以在对话中让模型绑定一个本地动作。" };
+      text("rule-state", rule[next.rule]);
+      byId("send").disabled = busy || next.network !== "online" || !next.model || !next.available;
+      byId("reset-chat").disabled = busy || !next.prompt;
+      byId("run-rule").disabled = busy || !next.script;
+      byId("clear-rule").disabled = busy || !next.script;
+      byId("clear-wifi").disabled = busy || !next.wifi_saved;
+      byId("wifi-form").querySelector(".primary").disabled = busy || next.network === "connecting";
+      byId("model-form").querySelector(".primary").disabled = busy;
+      byId("disconnect").disabled = working;
+      if (next.wifi_error === "wifi_timeout") text("notice", "连接超时，设备已返回配网模式。请检查 Wi-Fi 名称和密码。");
+      if (next.wifi_error === "wifi_save") text("notice", "网络已连接，但保存失败。重启后可能需要重新配网。");
+    }
+
+    function disconnect(message) {
+      clearTimeout(timer);
+      session++;
+      code = "";
+      state = undefined;
+      networkSwitch = false;
+      show("console", false);
+      show("unlock", true);
+      text("connection", "等待连接");
+      text("unlock-note", message || "");
+    }
+
+    async function poll() {
+      if (!state) return;
+      const activeSession = session;
+      if (!working) {
+        try {
+          const next = await api("state");
+          if (session !== activeSession) return;
+          if (!next.changing && next.network !== "connecting") networkSwitch = false;
+          if (!working) render(next);
+        } catch (error) {
+          if (session !== activeSession) return;
+          if (error.message === "code") return disconnect(errors.expired);
+          if (!networkSwitch) text("notice", errors[error.message]);
+        }
+      }
+      timer = setTimeout(poll, 1400);
+    }
+
+    async function action(run) {
+      if (working || networkSwitch) return;
+      working = true;
+      text("notice", "");
+      if (state) render(state);
+      try {
+        await run();
+        if (state && !networkSwitch) state = await api("state");
+      } catch (error) {
+        if (error.message === "code") disconnect(errors.expired);
+        else text("notice", errors[error.message] || error.message);
+      } finally {
+        working = false;
+        if (state) render(state);
+      }
+    }
+
+    async function connect(manual) {
+      if (working) return;
+      working = true;
+      byId("sign-in").disabled = true;
+      if (manual) code = value("code").toUpperCase();
+      try {
+        let next = await api("state");
+        let notice = "";
+        if (manual && byId("remember").checked) {
+          const temporaryCode = code;
+          try {
+            await api("session", "POST");
+            code = "";
+            next = await api("state");
+          } catch {
+            code = temporaryCode;
+            notice = "这次已连接，但未能记住浏览器。";
+          }
+        }
+        byId("code").value = "";
+        byId("base-url").value = next.base_url;
+        byId("model-name").value = next.model;
+        show("unlock", false);
+        show("console", true);
+        text("notice", notice);
+        tab(next.network === "online" && next.model ? "chat" : "settings");
+        working = false;
+        render(next);
+        timer = setTimeout(poll, 1400);
+      } catch (error) {
+        disconnect(!manual && error.message === "code" ? "" : errors[error.message] || errors.unavailable);
+      } finally {
+        working = false;
+        byId("sign-in").disabled = false;
+      }
+    }
+    byId("unlock-form").addEventListener("submit", event => {
+      event.preventDefault();
+      connect(true);
+    });
+    byId("disconnect").onclick = () => action(async () => {
+      await api("session", "DELETE");
+      disconnect();
+    });
+    byId("chat-tab").onclick = () => tab("chat");
+    byId("settings-tab").onclick = () => tab("settings");
+    document.querySelectorAll("[data-prompt]").forEach(button => {
+      button.onclick = () => {
+        byId("message").value = button.dataset.prompt;
+        byId("message").focus();
+      };
+    });
+    byId("chat-form").addEventListener("submit", event => {
+      event.preventDefault();
+      action(async () => {
+        const message = value("message").trim();
+        if (!message || encoder.encode(message).length > 768) throw new Error("请输入 768 字节以内的消息。");
+        await api("chat", "POST", { message, unix_time: Math.floor(Date.now() / 1000) });
+        byId("message").value = "";
+      });
+    });
+    byId("reset-chat").onclick = () => action(() => api("chat", "DELETE"));
+    byId("wifi-form").addEventListener("submit", event => {
+      event.preventDefault();
+      action(async () => {
+        await api("wifi", "POST", { ssid: value("ssid"), password: value("wifi-password") });
+        byId("wifi-password").value = "";
+        networkSwitch = true;
+        text("notice", "设备正在切换网络。请看设备屏幕，用新地址打开网页；连接失败时可重新加入配网热点。");
+      });
+    });
+    byId("clear-wifi").onclick = () => {
+      if (!confirm("清除设备已保存的 Wi-Fi 网络？")) return;
+      action(async () => {
+        await api("wifi", "DELETE");
+        if (state.network === "online") {
+          networkSwitch = true;
+          text("notice", "已清除网络。请重新加入设备屏幕显示的配网热点。");
+        }
+      });
+    };
+    byId("model-form").addEventListener("submit", event => {
+      event.preventDefault();
+      action(async () => {
+        const clear = byId("replace-key").checked;
+        await api("model", "POST", { base_url: value("base-url").trim(), model: value("model-name").trim(),
+          api_key: clear ? "" : value("api-key").trim(), keep_key: !clear });
+        byId("api-key").value = "";
+        byId("replace-key").checked = false;
+        text("notice", "模型设置已保存。");
+      });
+    });
+    byId("run-rule").onclick = () => action(() => api("rule", "POST"));
+    byId("clear-rule").onclick = () => {
+      if (confirm("删除设备上的确定键脚本？")) action(() => api("rule", "DELETE"));
+    };
+    connect(false);
+  </script>
+</body>
+</html>

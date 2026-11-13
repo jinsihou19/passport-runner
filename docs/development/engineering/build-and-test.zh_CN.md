@@ -76,7 +76,7 @@ Microsoft Defender 可使用其
 范围内。不要例行排除整个 ESP-IDF 安装目录、工具链目录或工程，也不要关闭
 实时防护。
 
-仓库提交 `dependencies.lock` 以固定 ESP-IDF Managed Components 的解析结果。修改 `idf_component.yml` 后必须使用 ESP-IDF 5.5.3 重新生成锁文件、review 版本变化并与 manifest 一起提交；普通构建不应产生未提交的锁文件差异。
+Runner 使用根目录的 `dependencies.lock`，ESP-Claw 和番茄钟使用各自目录的 `dependencies.lock`，以固定各目标的 ESP-IDF Managed Components 解析结果。修改 `idf_component.yml` 后必须使用 ESP-IDF 5.5.3 重新生成锁文件、review 版本变化并与 manifest 一起提交；普通构建不应产生未提交的锁文件差异。
 
 固件门禁使用全新的临时构建目录，并从仓库 `sdkconfig.defaults` 生成隔离的 `sdkconfig`。它不会读取或覆盖开发者根目录的 `sdkconfig`。清理临时构建前，先归档已验证固件及匹配的调试产物，再把已验证合并镜像复制到 `build/FoloToy-AI-Passport-full.bin`。门禁同时验证[当前配置的固件布局](firmware-layout.zh_CN.md)：从 `flash_args` 读取镜像偏移，检查分区表 MD5、边界和不重叠，并确认应用从所配置的 app 分区起点开始且未超出分区。允许用户自定义分区布局。
 
@@ -122,13 +122,15 @@ python3 tools/archive_firmware.py verify <archive-directory>
 当前基线含一个可独立运行的纯逻辑测试：
 
 ```bash
-cc -std=c11 -Wall -Wextra -Werror -Imain \
-  tests/test_ui_pixel_math.c main/ui_pixel_math.c \
-  -o /tmp/test_ui_pixel_math
-/tmp/test_ui_pixel_math
+cc -std=c11 -Wall -Wextra -Werror -Imain/apps/pomodoro \
+  tests/test_passport_pomodoro.c main/apps/pomodoro/passport_pomodoro_model.c \
+  -o /tmp/test_passport_pomodoro
+/tmp/test_passport_pomodoro
 ```
 
-静态门禁还将真实 BSP 和 demo 实现与轻量平台桩编译在一起，故障注入覆盖任务退出交接与停止重试、录音失败、Wi-Fi/BLE 启动回滚、按键分配与 ADC 错误、LVGL 初始化锁与重试、codec 打开/休眠/唤醒恢复。只需主机 C 编译器和 Python，不依赖 ESP-IDF 或已下载的 Managed Components。这些测试不代表真实时序、电气行为或设备兼容性；固件门禁会使用锁定依赖进行编译。
+静态门禁覆盖 Passport 应用逻辑和 BSP 故障注入，包括按键分配与 ADC 错误、LVGL 初始化锁与重试，以及音频 codec 打开、休眠和唤醒恢复。
+
+安装 Node.js 20 或更新版本，静态门禁就会运行浏览器导入解析测试。固件构建直接使用仓库中的 JavaScript。
 
 统一验证入口：
 

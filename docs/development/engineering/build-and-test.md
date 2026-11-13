@@ -85,7 +85,7 @@ applicable security policy, then limit any exception to the smallest confirmed
 scope. Do not routinely exclude the entire ESP-IDF installation, tools tree,
 or project, and do not disable real-time protection.
 
-The tracked `dependencies.lock` pins Managed Component resolution. After changing an `idf_component.yml`, regenerate the lock with ESP-IDF 5.5.3, review version changes, and commit it with the manifest. An ordinary build must not leave an unexplained lock-file diff.
+Runner uses the root `dependencies.lock`. ESP-Claw and Pomodoro use the lockfiles in their own directories. Each lockfile pins Managed Component resolution for its target. After changing an `idf_component.yml`, regenerate the lock with ESP-IDF 5.5.3, review version changes, and commit it with the manifest. An ordinary build must not leave an unexplained lock-file diff.
 
 Firmware validation uses a fresh temporary build directory and an isolated `sdkconfig` generated from the tracked defaults. It does not consume or overwrite a developer's root `sdkconfig`. Before cleaning the temporary build, it archives the verified firmware and matching debug artifacts, then copies the verified merged image to `build/FoloToy-AI-Passport-full.bin`. The gate also validates the [configured firmware layout](firmware-layout.md): image offsets from `flash_args`, partition-table MD5, bounds and non-overlap, and an application that starts in and fits its configured app partition. User-defined partition layouts are allowed.
 
@@ -137,21 +137,20 @@ these debug bundles; runner-local archives disappear when the runner is removed.
 Any additional retention/upload policy needs an explicit content and access review.
 No build/archive command flashes a device.
 
-The static gate also compiles the actual BSP and demo implementations against
-small platform stubs. These fault-injection tests cover task handoff and stop
-retries, recording failures, Wi-Fi/BLE startup rollback, button allocation and
-ADC failures, LVGL initialization locking/retry, and codec open/sleep/wake
-recovery. They need only a host C compiler and Python, not ESP-IDF or downloaded
-Managed Components. They do not establish real timing, electrical behavior or
-device compatibility; the firmware gate compiles against the pinned dependencies.
+The static gate covers Passport app logic and BSP fault injection, including
+button allocation and ADC failures, LVGL initialization locking and retries,
+and codec open, sleep, and wake recovery.
+
+Use Node.js 20 or later to include the browser import parser in the static
+gate. The firmware build uses the JavaScript already in the checkout.
 
 To run an individual pure-logic test:
 
 ```bash
-cc -std=c11 -Wall -Wextra -Werror -Imain \
-  tests/test_ui_pixel_math.c main/ui_pixel_math.c \
-  -o /tmp/test_ui_pixel_math
-/tmp/test_ui_pixel_math
+cc -std=c11 -Wall -Wextra -Werror -Imain/apps/pomodoro \
+  tests/test_passport_pomodoro.c main/apps/pomodoro/passport_pomodoro_model.c \
+  -o /tmp/test_passport_pomodoro
+/tmp/test_passport_pomodoro
 ```
 
 Use the unified validation entry point:

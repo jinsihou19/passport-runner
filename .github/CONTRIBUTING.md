@@ -42,10 +42,10 @@ idf.py fullclean              # Clear stale build state (never for user source c
 The current baseline includes a pure-logic test that runs without hardware:
 
 ```bash
-cc -std=c11 -Wall -Wextra -Werror -Imain \
-  tests/test_ui_pixel_math.c main/ui_pixel_math.c \
-  -o /tmp/test_ui_pixel_math
-/tmp/test_ui_pixel_math
+cc -std=c11 -Wall -Wextra -Werror -Imain/apps/pomodoro \
+  tests/test_passport_pomodoro.c main/apps/pomodoro/passport_pomodoro_model.c \
+  -o /tmp/test_passport_pomodoro
+/tmp/test_passport_pomodoro
 ```
 
 The repository provides one validation entry point for local development and CI:

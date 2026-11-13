@@ -34,7 +34,7 @@ ROOT_MARKDOWN_ALLOWLIST = {
 ROOT_README_RE = re.compile(r"README(?:\.[A-Za-z0-9_-]+)?\.md\Z")
 # Register only concrete, vendored component directories, e.g. "components/foo".
 # These exemptions never change the input to sensitive-content/conflict checks.
-VENDORED_DOC_ROOTS: tuple[str, ...] = ()
+VENDORED_DOC_ROOTS: tuple[str, ...] = ("third_party/esp-claw/components/claw_utils",)
 
 
 def vendored_document_roots(errors: list[str]) -> tuple[Path, ...]:

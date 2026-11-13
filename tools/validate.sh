@@ -11,13 +11,7 @@ usage() {
 run_static_checks() {
     local actionlint_bin
     local test_dir
-    local dead_strip_flag
-
-    # Apple ld does not accept --gc-sections; -dead_strip is the equivalent.
-    dead_strip_flag="-Wl,--gc-sections"
-    if [[ "$(uname -s)" == "Darwin" ]]; then
-        dead_strip_flag="-Wl,-dead_strip"
-    fi
+    local dead_strip
 
     python3 tools/check_repo.py
 
@@ -31,17 +25,24 @@ run_static_checks() {
     "${actionlint_bin}" -color .github/workflows/*.yml
 
     test_dir="$(mktemp -d /tmp/ai-passport-host-tests.XXXXXX)"
-    "${CC:-cc}" -std=c11 -Wall -Wextra -Werror -Imain \
-        tests/test_ui_pixel_math.c main/ui_pixel_math.c \
-        -o "${test_dir}/test_ui_pixel_math"
-    "${test_dir}/test_ui_pixel_math"
-    "${CC:-cc}" -std=c11 -Wall -Wextra -Werror -Imain \
-        tests/test_demo_navigation.c main/demo_navigation.c \
-        -o "${test_dir}/test_demo_navigation"
-    "${test_dir}/test_demo_navigation"
-    "${CC:-cc}" -std=c11 -Wall -Wextra -Werror -Imain \
-        tests/test_key_guard.c -o "${test_dir}/test_key_guard"
-    "${test_dir}/test_key_guard"
+    "${CC:-cc}" -std=c11 -D_POSIX_C_SOURCE=200809L -Wall -Wextra -Werror \
+        -Itests/bsp_stubs -Imain/common -Imain/apps/esp-claw \
+        tests/test_passport_input.c main/common/network/passport_input.c main/apps/esp-claw/passport_model.c \
+        -o "${test_dir}/test_passport_input"
+    "${test_dir}/test_passport_input"
+    "${CC:-cc}" -std=c11 -Wall -Wextra -Werror -Imain/apps/pomodoro \
+        tests/test_passport_pomodoro.c main/apps/pomodoro/passport_pomodoro_model.c \
+        -o "${test_dir}/test_passport_pomodoro"
+    "${test_dir}/test_passport_pomodoro"
+    "${CC:-cc}" -std=c11 -Wall -Wextra -Werror -Imain/runner \
+        tests/test_passport_manage_menu.c main/runner/passport_manage_menu.c \
+        -o "${test_dir}/test_passport_manage_menu"
+    "${test_dir}/test_passport_manage_menu"
+    "${CC:-cc}" -std=c11 -D_POSIX_C_SOURCE=200809L -Wall -Wextra -Werror -Imain/runner \
+        tests/test_passport_launcher.c main/runner/passport_launcher.c \
+        -o "${test_dir}/test_passport_launcher"
+    "${test_dir}/test_passport_launcher"
+    python3 tools/generate_passport_font.py --check
     "${CC:-cc}" -std=c11 -Wall -Wextra -Werror -Icomponents/bsp/src \
         tests/test_bsp_display_rounding.c components/bsp/src/bsp_display_rounding.c \
         -o "${test_dir}/test_bsp_display_rounding"
@@ -68,26 +69,23 @@ run_static_checks() {
         tests/test_bsp_audio_recovery.c components/bsp/src/bsp_es8311_sleep_check.c \
         -o "${test_dir}/test_bsp_audio_recovery"
     "${test_dir}/test_bsp_audio_recovery"
-    for demo in audio low_power ble wifi; do
-        "${CC:-cc}" -std=c11 -Wall -Wextra -Werror \
-            -ffunction-sections -fdata-sections -Itests/demo_stubs -Imain \
-            "tests/test_demo_${demo}_runtime.c" "${dead_strip_flag}" \
-            -o "${test_dir}/test_demo_${demo}_runtime"
-        "${test_dir}/test_demo_${demo}_runtime"
-    done
     PYTHONDONTWRITEBYTECODE=1 python3 tests/test_battery_profile.py
-    PYTHONDONTWRITEBYTECODE=1 python3 tests/test_deep_sleep_contract.py
-    PYTHONDONTWRITEBYTECODE=1 python3 tests/test_key_wake_contract.py
     PYTHONDONTWRITEBYTECODE=1 python3 tests/test_check_repo.py
     PYTHONDONTWRITEBYTECODE=1 python3 tests/test_verify_firmware.py
     PYTHONDONTWRITEBYTECODE=1 python3 tests/test_archive_firmware.py
+    PYTHONDONTWRITEBYTECODE=1 python3 tests/test_extract_passport_app.py
+    if command -v node >/dev/null 2>&1; then
+        node --test tests/test_passport_import.mjs
+    else
+        echo "Browser import parser tests: NOT RUN (Node.js unavailable)"
+    fi
     PYTHONDONTWRITEBYTECODE=1 python3 tests/test_install_passport_skills.py
     rm -rf "${test_dir}"
     echo "Host tests: PASS"
 }
 
 run_firmware_checks() (
-    local validation_build_dir
+    local validation_build_dir manager_build claw_build pomodoro_build
 
     if ! command -v idf.py >/dev/null 2>&1; then
         echo "ERROR: idf.py is not available; activate ESP-IDF 5.5.3 first." >&2
@@ -96,18 +94,29 @@ run_firmware_checks() (
 
     validation_build_dir="$(mktemp -d /tmp/ai-passport-firmware.XXXXXX)"
     trap 'case "${validation_build_dir}" in /tmp/ai-passport-firmware.*) rm -rf -- "${validation_build_dir}" ;; esac' EXIT
+    manager_build="${validation_build_dir}/manager"
+    claw_build="${validation_build_dir}/claw"
+    pomodoro_build="${validation_build_dir}/pomodoro"
 
-    SDKCONFIG_DEFAULTS="${repo_root}/sdkconfig.defaults" \
-        idf.py -B "${validation_build_dir}" \
-        -D "SDKCONFIG=${validation_build_dir}/sdkconfig" build
-    idf.py -B "${validation_build_dir}" merge-bin \
-        -o "${validation_build_dir}/FoloToy-AI-Passport-full.bin"
-    python3 tools/verify_firmware.py "${validation_build_dir}"
+    build_variant() {
+        local app="$1" output="$2"
+        SDKCONFIG_DEFAULTS="${repo_root}/sdkconfig.defaults" \
+            idf.py -B "${output}" -D "SDKCONFIG=${output}/sdkconfig" \
+                -D "PASSPORT_APP=${app}" build
+    }
+
+    build_variant claw "${claw_build}"
+    build_variant pomodoro "${pomodoro_build}"
+    build_variant manager "${manager_build}"
+    idf.py -B "${manager_build}" merge-bin -o "${manager_build}/FoloToy-AI-Passport-full.bin"
+    python3 tools/verify_firmware.py "${manager_build}"
+    PYTHONDONTWRITEBYTECODE=1 python3 tools/package_passport_apps.py \
+        "${manager_build}" "${claw_build}" "${pomodoro_build}" "${repo_root}/build/apps"
     PYTHONDONTWRITEBYTECODE=1 python3 tools/archive_firmware.py create \
-        "${validation_build_dir}" --archive-root "${repo_root}/build/firmware"
+        "${manager_build}" --archive-root "${repo_root}/build/firmware"
     mkdir -p "${repo_root}/build"
     install -m 0644 \
-        "${validation_build_dir}/FoloToy-AI-Passport-full.bin" \
+        "${manager_build}/FoloToy-AI-Passport-full.bin" \
         "${repo_root}/build/FoloToy-AI-Passport-full.bin"
     echo "Firmware build: PASS"
 )

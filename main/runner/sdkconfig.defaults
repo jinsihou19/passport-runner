@@ -1,0 +1,9 @@
+# Fit the HTTPS download client in the existing factory manager partition.
+CONFIG_COMPILER_OPTIMIZATION_SIZE=y
+CONFIG_MBEDTLS_TLS_CLIENT_ONLY=y
+CONFIG_MBEDTLS_CERTIFICATE_BUNDLE_DEFAULT_CMN=y
+CONFIG_MBEDTLS_CUSTOM_CERTIFICATE_BUNDLE=y
+CONFIG_MBEDTLS_CUSTOM_CERTIFICATE_BUNDLE_PATH="main/runner/assets/harica_roots.pem"
+
+# The launcher keeps its pages resident. Leave room for the peak draw queue.
+CONFIG_LV_MEM_SIZE_KILOBYTES=36

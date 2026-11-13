@@ -36,10 +36,10 @@ idf.py fullclean              # 配置过期时清空生成状态（勿用于清
 当前基线含一个可脱离硬件运行的纯逻辑测试：
 
 ```bash
-cc -std=c11 -Wall -Wextra -Werror -Imain \
-  tests/test_ui_pixel_math.c main/ui_pixel_math.c \
-  -o /tmp/test_ui_pixel_math
-/tmp/test_ui_pixel_math
+cc -std=c11 -Wall -Wextra -Werror -Imain/apps/pomodoro \
+  tests/test_passport_pomodoro.c main/apps/pomodoro/passport_pomodoro_model.c \
+  -o /tmp/test_passport_pomodoro
+/tmp/test_passport_pomodoro
 ```
 
 本仓库为本地开发和 CI 提供同一个验证入口：
