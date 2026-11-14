@@ -18,8 +18,10 @@ a manager page.
   and brightness choices persist across restarts.
 
 Installed apps share 4,160 KiB of Flash. Each binary must fit the 2,368 KiB
-shared boot partition. The web page shows total, used, and free space, the
-per-app limit, and each installed app's size.
+shared boot partition. The **Passport Runner** web console opens on the app
+desktop. Select an app to see its details, open its community page if available,
+or remove it. The sidebar links to Wi-Fi, home weather, app storage, and
+development. **App storage** shows total, used, and free space and the per-app limit.
 
 ## Home weather
 
@@ -37,16 +39,16 @@ unavailable state if it has no usable forecast.
    hotspot mode, join the displayed Wi-Fi network. Use the eight-character
    connection code as the hotspot password.
 2. Open the address displayed on the device and enter the same code. Under
-   **Install app**, upload `Passport-Pomodoro.bin`. The **Wi-Fi settings**
-   section can join an existing 2.4 GHz network. Open the address shown on the
-   device after the switch.
+   **Install app**, choose **Upload Passport app** and upload
+   `Passport-Pomodoro.bin`. Use **Wi-Fi settings** to join an existing 2.4 GHz
+   network. Open the address shown on the device after the switch.
 3. Hold UP to return home, enter **Apps**, select **Pomodoro**, and press OK. Use
    UP/DOWN to choose 15, 25, or 45 minutes before a session. OK starts, pauses,
    or resumes the timer. A completed focus session offers a five-minute break.
 4. Hold UP in either Pomodoro or ESP-Claw to return to the manager. Pomodoro
    saves its remaining time and reopens paused. The app list keeps installed
-   images across a restart. To reclaim the space an uploaded app uses, remove
-   it from the web list.
+   images across a restart. To reclaim space, open the app's details on the web
+   desktop and select **Remove app**.
 
 When you open an uploaded app, the manager copies it to the shared boot
 partition and restarts into it. The factory manager enables the ESP-IDF OTA
@@ -96,13 +98,14 @@ browser and a trusted local network.
 ## Import a community firmware download
 
 Download the raw merged `.bin` from the [community](https://ai-passport.folotoy.cn/plays/).
-On the manager's **Install app** card, open **Import community firmware** and
+On the app desktop, choose **Install app** → **Import community firmware** and
 select the file. The browser checks and extracts the application locally.
 Review its size and version, edit its name if desired, and select
 **Install this app**.
 
-Alternatively, paste a [community play page](https://ai-passport.folotoy.cn/plays/1471/)
-in **Import from an official play link** and choose **Download and install**.
+Alternatively, choose **Install app** → **Install from a community play link**,
+paste a [community play page](https://ai-passport.folotoy.cn/plays/1471/), and choose
+**Download and install**.
 Passport must be connected to Wi-Fi with Internet access. It streams the
 official download to the browser, which verifies it against the published
 SHA-256, extracts the app, and installs it if all checks pass. Only the
@@ -110,8 +113,8 @@ extracted app takes up space in the library. Open it from the device's app list.
 
 The official play title appears in the web and device app lists. The device
 uses the app identifier when its screen font lacks a character in the title.
-Long-press OK on an app to see its community play ID. In the web list, click
-the ID to open the official play page. To add this metadata to an older
+Long-press OK on an app to see its community play ID. On the web desktop, select
+the app and click the ID to open the official play page. To add this metadata to an older
 installation, paste the same play link again. Runner updates the metadata when
 the downloaded app matches the installed image byte for byte. A local `.bin`
 has no official play metadata.
@@ -141,7 +144,7 @@ contains several apps. The third command sets the app name inside the image
 and updates its checksum and SHA-256 digest for upload. It leaves the original
 download intact and refuses to overwrite an existing output file.
 
-Upload the file produced by `--name` in the **Passport app .bin** field.
+Use **Install app** → **Upload Passport app** to upload the file produced by `--name`.
 The standalone tool can also inspect and extract images from some bundles
 that the web importer declines. Test the app's screen, controls and
 behavior on the Passport separately.

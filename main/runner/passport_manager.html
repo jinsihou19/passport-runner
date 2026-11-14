@@ -2,87 +2,237 @@
 <html lang="zh-CN">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>应用管理 · Passport Runner</title>
+<title>Passport Runner</title>
 <style>
-  :root { color-scheme: light; font: 16px/1.55 system-ui, sans-serif; color: #182334; background: #eff2f6; }
+  :root {
+    color-scheme: dark;
+    font: 16px/1.55 system-ui, "PingFang SC", "Microsoft YaHei", sans-serif;
+    --desktop: #101413;
+    --chrome: #151a17;
+    --surface: #1a211d;
+    --line: #303a33;
+    --text: #f2f6f2;
+    --muted: #abb8ae;
+    --green: #79e7a6;
+    --selection: #203b2b;
+    --error: #ffb4ae;
+    color: var(--text);
+    background: var(--desktop);
+  }
   * { box-sizing: border-box; }
   [hidden] { display: none !important; }
   body { margin: 0; }
-  header { background: #12213a; color: #f0f5ff; }
-  .top, main { width: min(calc(100% - 32px), 920px); margin: auto; }
-  .top { padding: 16px 0; display: flex; align-items: center; justify-content: space-between; gap: 12px; }
-  .top strong { letter-spacing: .02em; }
-  #connection { color: #c3d5f1; font-size: .875rem; }
-  main { padding: 40px 0; }
   h1, h2, p { margin: 0; }
-  h1 { font-size: clamp(1.65rem, 4vw, 2.3rem); line-height: 1.2; }
-  h2 { font-size: 1.125rem; }
-  p, small { color: #4b5b70; }
-  .intro { margin: 0 0 24px; display: flex; flex-wrap: wrap; justify-content: space-between; align-items: start; gap: 12px; }
-  .intro p { margin-top: 8px; }
-  .grid { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); gap: 16px; align-items: start; }
-  .card { background: #fff; border: 1px solid #d8e0ec; border-radius: 16px; padding: 22px; min-width: 0; }
-  #storage { margin-bottom: 16px; }
-  .storage-values { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin: 12px 0; }
-  .storage-values dt { color: #4b5b70; font-size: .875rem; }
-  .storage-values dd { margin: 2px 0 0; font-size: clamp(1rem, 3.6vw, 1.375rem); font-weight: 700;
-                       font-variant-numeric: tabular-nums; }
-  #storage-free { color: #214cae; }
-  #storage-meter { display: block; width: 100%; height: 10px; }
-  #storage-meter::-webkit-meter-bar { background: #e7edf5; border: 0; }
-  #storage-meter::-webkit-meter-optimum-value { background: #275ad3; }
-  #storage-meter::-moz-meter-bar { background: #275ad3; }
-  #unlock { max-width: 420px; margin: 16px auto; }
-  #unlock p, .card h2 + p { margin-top: 8px; }
-  form { margin-top: 16px; display: grid; gap: 12px; }
-  label { display: grid; gap: 4px; font-weight: 600; font-size: .92rem; }
-  input { min-width: 0; max-width: 100%; width: 100%; border: 1px solid #a7b6cc; border-radius: 8px;
-          padding: 9px 10px; font: inherit; color: inherit; background: #fafcff; }
-  input[type=file] { font-size: .875rem; border-style: dashed; padding: 12px; }
-  .remember { display: flex; align-items: center; gap: 8px; font-weight: 500; }
-  .remember input { width: 16px; height: 16px; margin: 0; }
-  button { font: inherit; font-weight: 650; background: #275ad3; color: #fff; border: 1px solid transparent;
-           border-radius: 8px; padding: 8px 12px; min-height: 42px; cursor: pointer; justify-self: start; }
-  button:disabled { opacity: .6; cursor: default; }
-  button.secondary { background: #fff; color: #283d64; border-color: #bdc9dd; }
-  :focus-visible { outline: 2px solid #275ad3; outline-offset: 3px; }
-  #notice, #unlock-note { color: #244580; }
-  #import-note[data-error], #community-note[data-error] { color: #8c3040; }
-  #import-note:empty, #community-note:empty { display: none; }
-  #community-form { border-top: 1px solid #e2e8f1; padding-top: 16px; }
-  #community-form p { margin-top: 0; }
+  h1, h2 { letter-spacing: -.025em; line-height: 1.25; }
+  p, small { color: var(--muted); }
+  a { color: var(--green); text-underline-offset: 3px; }
+  ::selection { background: #355f44; color: #fff; }
+  :focus-visible { outline: 2px solid var(--green); outline-offset: 3px; }
+  button, summary { cursor: pointer; }
+  button, .action {
+    display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+    min-height: 44px; padding: 8px 14px; border: 1px solid transparent; border-radius: 8px;
+    background: var(--green); color: #102419; font: inherit; font-weight: 650;
+  }
+  button:hover:not(:disabled), .action:hover:not([aria-disabled=true]) { background: #a3f1c0; }
+  button:active, .action:active { background: #58cb89; }
+  button:disabled, .action[aria-disabled=true] { opacity: .55; cursor: default; }
+  button.secondary { background: var(--surface); color: var(--text); border-color: var(--line); }
+  button.secondary:hover:not(:disabled) { background: #28332b; }
+  button.danger { background: #3b2626; color: var(--error); border-color: #674344; }
+  button.danger:hover:not(:disabled) { background: #553131; }
+  form { margin-top: 20px; display: grid; gap: 12px; }
+  form button { justify-self: start; }
+  label { display: grid; gap: 5px; font-weight: 600; font-size: .925rem; }
+  input, select {
+    min-width: 0; max-width: 100%; width: 100%; padding: 10px 12px; border: 1px solid #536158;
+    border-radius: 8px; font: inherit; color: inherit; background: var(--desktop); caret-color: var(--green);
+  }
+  input::placeholder { color: var(--muted); }
+  input[type=file] { padding: 12px; border-style: dashed; }
+  input::file-selector-button {
+    margin-right: 10px; padding: 5px 9px; background: var(--surface); color: var(--text);
+    border: 1px solid var(--line); border-radius: 5px; font: inherit; cursor: pointer;
+  }
+  .remember { display: flex; align-items: center; gap: 9px; font-weight: 500; }
+  .remember input { width: 16px; height: 16px; margin: 0; accent-color: var(--green); }
+  .top {
+    min-height: 65px; padding: 9px 28px; display: flex; align-items: center; justify-content: space-between;
+    gap: 16px; background: var(--chrome); border-bottom: 1px solid var(--line);
+  }
+  .brand { display: flex; align-items: center; gap: 11px; font-size: 1rem; font-weight: 740; }
+  .brand-mark {
+    width: 29px; height: 29px; display: grid; place-items: center; flex: none;
+    border-radius: 7px; background: var(--green); color: #11291d;
+  }
+  .system-actions { display: flex; align-items: center; gap: 16px; }
+  .connection { display: flex; align-items: center; gap: 7px; color: var(--muted); font-size: .8125rem; }
+  .connection::before { content: ""; flex: none; width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+  .connection[data-network=online] { color: var(--green); }
+  .connection:is([data-network=setup], [data-network=connecting]) { color: #f3ce96; }
+  .connection[data-network=failed] { color: var(--error); }
+  #disconnect { font-size: .8125rem; }
+  #unlock {
+    width: min(calc(100% - 32px), 436px); margin: clamp(40px, 11vh, 100px) auto;
+    padding: 28px; border: 1px solid var(--line); border-radius: 16px; background: var(--chrome);
+  }
+  #unlock h2 { font-size: 1.65rem; }
+  #unlock p { margin-top: 8px; }
+  #console { display: grid; grid-template-columns: 216px minmax(0, 1fr); min-height: calc(100vh - 65px); }
+  .sidebar {
+    display: flex; flex-direction: column; gap: 28px; padding: 26px 14px 22px;
+    background: var(--chrome); border-right: 1px solid var(--line);
+  }
+  .sidebar nav { display: grid; gap: 4px; }
+  .sidebar button {
+    justify-content: flex-start; width: 100%; gap: 11px; padding-inline: 11px;
+    background: transparent; color: var(--muted); font-size: .9rem; white-space: nowrap;
+  }
+  .sidebar button:hover { background: var(--surface); color: var(--text); }
+  .sidebar button[aria-current=page] { background: var(--selection); color: var(--green); }
+  .sidebar .group { margin: 19px 11px 5px; color: var(--muted); font-size: .75rem; }
+  .sidebar .capacity { margin-top: auto; padding: 14px 11px 0; border-top: 1px solid var(--line); }
+  .capacity span { display: block; margin-top: 6px; color: var(--muted); font-size: .75rem; }
+  .workspace { width: min(100%, 1260px); padding: 45px clamp(22px, 4vw, 62px) 40px; }
+  .view-head { display: flex; align-items: start; justify-content: space-between; gap: 18px; margin-bottom: 28px; }
+  .view-head h2 { font-size: 2.125rem; }
+  .view-head p { margin-top: 8px; font-size: .9375rem; }
+  .settings-surface { max-width: 620px; padding: 22px; border: 1px solid var(--line); border-radius: 12px; background: var(--chrome); }
+  .settings-surface > p + p { margin-top: 8px; }
+  #notice { margin-bottom: 16px; padding: 10px 14px; border-radius: 8px; background: var(--surface); color: var(--text); }
+  #notice:empty, .feedback:empty { display: none; }
+  .feedback { font-size: .9rem; }
+  .feedback[data-error], #unlock-note { color: var(--error); }
+  .icon { display: inline-block; position: relative; width: 16px; height: 16px; flex: none; }
+  .icon::before, .icon::after { content: ""; position: absolute; }
+  .icon-grid::before {
+    top: 1px; left: 1px; width: 5px; height: 5px; border-radius: 1px; background: currentColor;
+    box-shadow: 8px 0 currentColor, 0 8px currentColor, 8px 8px currentColor;
+  }
+  .icon-wifi::before, .icon-wifi::after { left: 50%; transform: translateX(-50%); border: 2px solid transparent; border-top-color: currentColor; border-radius: 50%; }
+  .icon-wifi::before { top: 3px; width: 14px; height: 12px; }
+  .icon-wifi::after { top: 7px; width: 7px; height: 6px; }
+  .icon-wifi { background: radial-gradient(circle at 50% 86%, currentColor 1px, transparent 1.5px); }
+  .icon-weather::before { inset: 3px; border-radius: 50%; border: 1.6px solid currentColor; }
+  .icon-weather::after { top: 0; left: 7px; width: 2px; height: 2px; background: currentColor; box-shadow: 0 14px currentColor, -7px 7px currentColor, 7px 7px currentColor; }
+  .icon-game::before { inset: 3px 1px; border: 1.6px solid currentColor; border-radius: 3px 3px 5px 5px; }
+  .icon-game::after { top: 7px; left: 4px; width: 2px; height: 2px; background: currentColor; box-shadow: 2px 0 currentColor, 1px -1px currentColor, 1px 1px currentColor, 6px 0 currentColor; }
+  .icon-timer::before { inset: 3px 2px 1px; border: 1.6px solid currentColor; border-radius: 50%; }
+  .icon-timer::after { top: 6px; left: 7px; width: 2px; height: 4px; background: currentColor; box-shadow: 0 -6px currentColor; }
+  .icon-store::before { inset: 2px 0; border: 1.6px solid currentColor; border-radius: 3px; }
+  .icon-store::after { bottom: 5px; left: 3px; right: 3px; height: 1.5px; background: currentColor; }
+  .icon-dev::before, .icon-dev::after { width: 5px; height: 5px; top: 5px; border: solid currentColor; border-width: 0 0 1.6px 1.6px; transform: rotate(45deg); }
+  .icon-dev::before { left: 2px; }
+  .icon-dev::after { right: 2px; transform: rotate(225deg); }
+  .icon-plus::before, .icon-plus::after { background: currentColor; border-radius: 1px; }
+  .icon-plus::before { inset: 7px 1px; }
+  .icon-plus::after { inset: 1px 7px; }
+  .icon-chevron::before { width: 6px; height: 6px; left: 4px; top: 2px; border: solid currentColor; border-width: 0 1.6px 1.6px 0; transform: rotate(45deg); }
+  .icon-more::before { width: 3px; height: 3px; left: 6px; top: 6px; border-radius: 50%; background: currentColor; box-shadow: -5px 0 currentColor, 5px 0 currentColor; }
+  .icon-close::before, .icon-close::after { inset: 7px 1px; background: currentColor; transform: rotate(45deg); }
+  .icon-close::after { transform: rotate(-45deg); }
+  #install-menu { position: relative; flex: none; }
+  #install-toggle { list-style: none; }
+  #install-toggle::-webkit-details-marker { display: none; }
+  #install-menu[open] .icon-chevron { transform: rotate(180deg); }
+  .install-options {
+    position: absolute; top: calc(100% + 8px); right: 0; z-index: 1;
+    width: max-content; min-width: 206px; padding: 5px; border-radius: 10px;
+    background: #202923; box-shadow: 0 8px 26px #0009;
+  }
+  .install-options button {
+    display: flex; width: 100%; justify-content: flex-start; padding-inline: 12px;
+    background: transparent; color: var(--text); border-radius: 6px; font-size: .875rem;
+  }
+  .install-options button:hover { background: var(--selection); color: var(--green); }
+  #apps { list-style: none; padding: 0; margin: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(172px, 1fr)); gap: 12px; }
+  #apps:empty { display: none; }
+  #apps li { min-width: 0; }
+  .app-tile {
+    position: relative; display: grid; align-content: start; justify-content: stretch; gap: 12px;
+    width: 100%; height: 100%; min-height: 148px; padding: 15px;
+    border-radius: 12px; border-color: var(--line); background: var(--surface); color: var(--text); text-align: left;
+  }
+  .app-tile:hover:not(:disabled) { border-color: #60776a; background: #222e26; }
+  .app-tile:active:not(:disabled) { background: var(--selection); }
+  .app-tile .icon-more { position: absolute; top: 17px; right: 14px; color: var(--muted); }
+  .app-symbol {
+    display: grid; place-items: center; width: 48px; height: 48px; border-radius: 12px;
+    background: #353759; color: #ddd9ff;
+  }
+  .app-symbol > .icon { transform: scale(1.35); }
+  .app-symbol[data-kind=community] { background: #473723; color: #ffd39b; }
+  .app-symbol[data-kind=pomodoro] { background: #4b2e33; color: #ffc7c4; }
+  .app-name { display: block; line-height: 1.35; font-size: .925rem; overflow-wrap: anywhere; }
+  .app-meta { display: block; margin-top: 3px; font-size: .77rem; font-weight: 500; overflow-wrap: anywhere; }
+  .desktop-foot {
+    display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap;
+    margin-top: 28px; padding-top: 14px; border-top: 1px solid var(--line); font-size: .8125rem;
+  }
+  #app-pages { display: flex; gap: 8px; }
+  #apps-empty, #apps-unavailable { padding: 26px 18px; border: 1px dashed var(--line); border-radius: 12px; }
+  .storage-values { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin: 0 0 18px; }
+  .storage-values dt { color: var(--muted); font-size: .8125rem; }
+  .storage-values dd { margin: 3px 0 0; font-weight: 700; font-variant-numeric: tabular-nums; }
+  #storage-free { color: var(--green); }
+  #storage-limit { margin-top: 12px; }
+  meter { display: block; width: 100%; height: 8px; }
+  meter::-webkit-meter-bar { background: #343e36; border: 0; border-radius: 4px; }
+  meter::-webkit-meter-optimum-value { background: var(--green); }
+  meter::-moz-meter-bar { background: var(--green); }
+  #development ol { margin: 0; padding-inline-start: 1.3rem; }
+  #development li + li { margin-top: 10px; }
+  #development-install { font-size: .875rem; margin-top: 16px; }
+  #weather-results { margin-bottom: 12px; }
+  #weather-clear { margin-top: 12px; }
+  #weather-status:not(:empty) { margin-top: 12px; }
+  .actions { display: flex; flex-wrap: wrap; gap: 8px; }
+  dialog {
+    width: min(calc(100% - 28px), 492px); max-height: calc(100% - 28px); padding: 0;
+    background: var(--chrome); color: var(--text); border: 1px solid #45544a; border-radius: 14px;
+  }
+  dialog::backdrop { background: #050907c9; }
+  .dialog-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 13px 20px; border-bottom: 1px solid var(--line); }
+  .dialog-head h2 { font-size: 1.1rem; overflow-wrap: anywhere; }
+  .close { flex: none; width: 44px; padding: 0; }
+  .dialog-body { padding: 20px; overflow-wrap: anywhere; }
+  .dialog-body p + p, #upload-note:not(:empty), #community-note:not(:empty) { margin-top: 8px; }
   #import-name { display: flex; align-items: center; gap: 8px; }
   #import-name input { flex: 1; }
   #import-preview { display: grid; gap: 10px; }
-  #notice:not(:empty) { margin-bottom: 14px; }
-  #unlock-note:not(:empty) { margin-top: 12px; }
-  #apps { list-style: none; padding: 0; margin: 10px 0 0; }
-  #apps li { display: flex; align-items: center; justify-content: space-between; gap: 10px;
-             border-top: 1px solid #e2e8f1; padding: 12px 0; overflow-wrap: anywhere; }
-  #apps li:last-child { padding-bottom: 0; }
-  #apps small { display: block; }
-  #apps button { font-size: .875rem; white-space: nowrap; }
-  #app-pages { display: flex; justify-content: space-between; gap: 8px; margin-top: 16px; }
-  #development ol { margin: 12px 0 0; padding-inline-start: 1.25rem; }
-  #development li + li { margin-top: 6px; }
-  #development a { color: #214cae; }
-  .card a { color: #214cae; }
-  #weather-results { margin: 12px 0; }
-  #weather-status { margin-top: 12px; }
-  #weather-choice { min-width: 0; width: 100%; padding: 9px 10px; font: inherit; }
-  details { margin-top: 16px; }
-  summary { cursor: pointer; font-weight: 650; }
-  details p { margin-top: 8px; }
-  @media (max-width: 640px) {
-    main { padding-top: 24px; }
-    .grid { grid-template-columns: minmax(0, 1fr); }
-    .card { padding: 18px; }
+  #app-source:not([hidden]) { display: block; margin-top: 8px; }
+  #app-remove { margin-top: 20px; }
+  @media (max-width: 720px) {
+    #console { display: block; }
+    .top { padding-inline: 16px; gap: 7px; }
+    .system-actions { gap: 7px; }
+    .sidebar { display: block; padding: 5px 10px; border: 0; border-bottom: 1px solid var(--line); }
+    .sidebar nav { display: flex; flex-wrap: wrap; gap: 2px; }
+    .sidebar .group, .sidebar .capacity { display: none; }
+    .sidebar button { width: auto; font-size: .8125rem; padding-inline: 7px; gap: 5px; }
+    .sidebar .icon { display: none; }
+    .workspace { padding: 26px 16px 30px; }
+    .view-head h2 { font-size: 1.625rem; }
+    .view-head { flex-wrap: wrap; gap: 12px; margin-bottom: 20px; }
+    #apps { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+    .app-tile { min-height: 134px; padding: 12px; }
+    .settings-surface { padding: 16px; }
+  }
+  @media (max-width: 360px) {
+    .top { flex-wrap: wrap; }
+    .sidebar button { padding-inline: 6px; }
   }
 </style>
-<header><div class="top"><strong>Passport Runner</strong><span id="connection">等待连接</span></div></header>
+<header class="top">
+  <h1 class="brand"><span class="brand-mark" aria-hidden="true"><span class="icon icon-grid"></span></span>Passport Runner</h1>
+  <div class="system-actions">
+    <span id="connection" class="connection" role="status">等待连接</span>
+    <button id="disconnect" class="secondary" type="button" hidden>退出</button>
+  </div>
+</header>
 <main>
-  <section class="card" id="unlock" aria-labelledby="unlock-title">
-    <h1 id="unlock-title">连接 Passport</h1>
+  <section id="unlock" aria-labelledby="unlock-title">
+    <h2 id="unlock-title">连接 Passport</h2>
     <p>在设备上打开「开发」，输入屏幕显示的 8 位连接码。</p>
     <form id="unlock-form">
       <label>连接码<input id="code" minlength="8" maxlength="8" pattern="[A-Za-z2-9]{8}" required autocomplete="off" autocapitalize="characters" spellcheck="false"></label>
@@ -92,106 +242,168 @@
     <p id="unlock-note" role="status"></p>
   </section>
   <div id="console" hidden>
-    <div class="intro">
-      <div><h1>应用管理</h1><p>从网页安装，在 Passport 上选择并打开应用。</p></div>
-      <button id="disconnect" class="secondary" type="button">退出</button>
-    </div>
-    <section class="card" id="storage" aria-labelledby="storage-title">
-      <h2 id="storage-title">应用存储</h2>
-      <div id="storage-summary" hidden>
-        <dl class="storage-values" aria-live="polite">
-          <div><dt>总空间</dt><dd id="storage-total"></dd></div>
-          <div><dt>已用空间</dt><dd id="storage-used"></dd></div>
-          <div><dt>剩余空间</dt><dd id="storage-free"></dd></div>
-        </dl>
-        <meter id="storage-meter" aria-label="应用存储使用量"></meter>
+    <aside class="sidebar">
+      <nav aria-label="系统导航">
+        <button type="button" data-view="desktop" aria-controls="desktop" aria-current="page"><span class="icon icon-grid" aria-hidden="true"></span>应用桌面</button>
+        <div class="group" aria-hidden="true">系统设置</div>
+        <button type="button" data-view="wifi-panel" aria-controls="wifi-panel"><span class="icon icon-wifi" aria-hidden="true"></span>Wi-Fi 设置</button>
+        <button type="button" data-view="weather-panel" aria-controls="weather-panel"><span class="icon icon-weather" aria-hidden="true"></span>首页天气</button>
+        <button type="button" data-view="storage" aria-controls="storage"><span class="icon icon-store" aria-hidden="true"></span>应用存储</button>
+        <button type="button" data-view="development" aria-controls="development"><span class="icon icon-dev" aria-hidden="true"></span>开发</button>
+      </nav>
+      <div id="capacity" class="capacity" hidden>
+        <meter id="capacity-meter" aria-label="应用存储使用量"></meter>
+        <span id="capacity-label"></span>
       </div>
-      <p id="storage-unavailable" role="status" hidden>应用存储暂不可用。</p>
-    </section>
-    <p id="notice" role="status"></p>
-    <div class="grid">
-      <section class="card" aria-labelledby="upload-title">
-        <h2 id="upload-title">安装应用</h2>
-        <p id="install-limit" hidden></p>
-        <form id="upload-form">
-          <label>Passport 应用 .bin<input type="file" id="file" accept=".bin,application/octet-stream" required></label>
-          <button id="install" type="submit">安装到 Passport</button>
-        </form>
-        <details>
-          <summary>导入社区固件</summary>
-          <p>选择社区下载的完整 .bin，检查后再安装。</p>
-          <form id="import-form">
-            <label>社区固件 .bin<input type="file" id="import-file" accept=".bin,application/octet-stream" required></label>
-            <p id="import-note" role="status"></p>
-            <div id="import-preview" hidden>
-              <p id="import-info"></p>
-              <label for="import-title">应用名称</label>
-              <div id="import-name"><span>Passport-</span><input id="import-title" aria-describedby="import-name-hint"
-                pattern="[A-Za-z0-9_\x2D]{1,22}" maxlength="22" autocomplete="off" spellcheck="false"></div>
-              <p id="import-name-hint">可用字母、数字、连字符或下划线。</p>
-              <button id="import-install" type="submit">安装此应用</button>
+    </aside>
+    <div class="workspace">
+      <p id="notice" role="status"></p>
+      <section id="desktop" aria-labelledby="apps-title">
+        <div class="view-head">
+          <div><h2 id="apps-title" tabindex="-1">已安装应用</h2><p id="app-count" hidden></p></div>
+          <details id="install-menu">
+            <summary id="install-toggle" class="action"><span class="icon icon-plus" aria-hidden="true"></span>安装应用<span class="icon icon-chevron" aria-hidden="true"></span></summary>
+            <div class="install-options">
+              <button type="button" data-install="upload">上传 Passport 应用</button>
+              <button type="button" data-install="import">导入社区固件</button>
+              <button type="button" data-install="community">从官网玩法链接安装</button>
+            </div>
+          </details>
+        </div>
+        <p id="apps-empty" hidden>还没有安装应用。使用「安装应用」添加第一个应用。</p>
+        <p id="apps-unavailable" hidden>应用存储暂不可用。</p>
+        <ul id="apps"></ul>
+        <div class="desktop-foot">
+          <p>在 Passport 上进入「应用」，用确定键打开应用。</p>
+          <nav id="app-pages" aria-label="应用列表分页" hidden>
+            <button id="prev-apps" class="secondary" type="button">上一页</button>
+            <button id="next-apps" class="secondary" type="button">下一页</button>
+          </nav>
+        </div>
+      </section>
+      <section id="wifi-panel" aria-labelledby="wifi-title" hidden>
+        <div class="view-head"><h2 id="wifi-title" tabindex="-1">Wi-Fi 设置</h2></div>
+        <div class="settings-surface">
+          <p>加入 2.4 GHz Wi-Fi 后，请按设备屏幕上的新地址重新打开网页。</p>
+          <p id="wifi-saved"></p>
+          <form id="wifi-form">
+            <button id="scan-wifi" class="secondary" type="button">扫描附近的 Wi-Fi</button>
+            <p id="scan-status" role="status" hidden></p>
+            <label id="wifi-results" hidden>附近的网络<select id="wifi-choice"></select></label>
+            <label>网络名称<input id="ssid" required maxlength="32" autocomplete="off" autocapitalize="off" spellcheck="false"></label>
+            <label>网络密码<input id="password" type="password" maxlength="64" autocomplete="off" placeholder="开放网络可留空"></label>
+            <div class="actions">
+              <button id="connect" type="submit">连接 Wi-Fi</button>
+              <button id="clear-wifi" class="secondary" type="button">清除已保存网络</button>
             </div>
           </form>
-          <form id="community-form">
-            <label>从官网玩法链接导入
-              <input id="community-url" inputmode="url" required maxlength="512" autocapitalize="none"
-                     spellcheck="false" aria-describedby="community-hint community-note"
-                     placeholder="https://ai-passport.folotoy.cn/plays/1471/">
-            </label>
-            <p id="community-hint">设备连接可上网的 Wi-Fi 后，可自动下载、提取并安装。</p>
-            <button id="community-install" type="submit">下载并安装</button>
-            <p id="community-note" role="status"></p>
-          </form>
-        </details>
+        </div>
       </section>
-      <section class="card" aria-labelledby="apps-title">
-        <h2 id="apps-title">设备上的应用</h2>
-        <p id="apps-empty" hidden>还没有安装应用。</p>
-        <ul id="apps"></ul>
-        <nav id="app-pages" aria-label="应用列表分页" hidden>
-          <button id="prev-apps" class="secondary" type="button">上一页</button>
-          <button id="next-apps" class="secondary" type="button">下一页</button>
-        </nav>
+      <section id="weather-panel" aria-labelledby="weather-title" hidden>
+        <div class="view-head"><h2 id="weather-title" tabindex="-1">首页天气</h2></div>
+        <div class="settings-surface">
+          <p id="weather-city"></p>
+          <p>Passport 按所选城市向天气服务查询，回到首页后自动更新。</p>
+          <form id="weather-search">
+            <label>城市<input id="weather-query" required minlength="2" maxlength="80" placeholder="例如 台北或 Shanghai"></label>
+            <button id="weather-find" class="secondary" type="submit">搜索城市</button>
+          </form>
+          <form id="weather-results" hidden>
+            <label>匹配城市<select id="weather-choice" required></select></label>
+            <button id="weather-save" type="submit">设为天气城市</button>
+          </form>
+          <button id="weather-clear" class="secondary" type="button" hidden>关闭天气</button>
+          <p id="weather-status" role="status"></p>
+          <p><small>气温和天气由 <a href="https://api.met.no/weatherapi/locationforecast/2.0/documentation"
+            target="_blank" rel="noopener noreferrer">MET Norway</a> 提供，已取整和翻译。
+            <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener noreferrer">CC BY 4.0</a> ·
+            <a href="https://open-meteo.com/en/docs/geocoding-api" target="_blank" rel="noopener noreferrer">城市搜索</a></small></p>
+        </div>
+      </section>
+      <section id="storage" aria-labelledby="storage-title" hidden>
+        <div class="view-head"><h2 id="storage-title" tabindex="-1">应用存储</h2></div>
+        <div class="settings-surface">
+          <div id="storage-summary" hidden>
+            <dl class="storage-values" aria-live="polite">
+              <div><dt>总空间</dt><dd id="storage-total"></dd></div>
+              <div><dt>已用空间</dt><dd id="storage-used"></dd></div>
+              <div><dt>剩余空间</dt><dd id="storage-free"></dd></div>
+            </dl>
+            <meter id="storage-meter" aria-label="应用存储使用量"></meter>
+            <p id="storage-limit"></p>
+          </div>
+          <p id="storage-unavailable" role="status" hidden>应用存储暂不可用。</p>
+        </div>
+      </section>
+      <section id="development" aria-labelledby="development-title" hidden>
+        <div class="view-head"><h2 id="development-title" tabindex="-1">开发 Passport 应用</h2></div>
+        <div class="settings-surface">
+          <ol>
+            <li>在电脑上用 ESP-IDF 5.5.3 构建 ESP32-C3 工程，项目名以 <code>Passport-</code> 开头。</li>
+            <li>选择构建生成的应用 <code>.bin</code> 并上传。</li>
+            <li>在 Passport 首页进入「应用」，选中刚安装的应用打开。</li>
+          </ol>
+          <button id="development-install" class="secondary" type="button" data-install="upload">上传 Passport 应用</button>
+        </div>
       </section>
     </div>
-    <details class="card" id="development">
-      <summary>开发 Passport 应用</summary>
-      <ol>
-        <li>在电脑上用 ESP-IDF 5.5.3 构建 ESP32-C3 工程，项目名以 <code>Passport-</code> 开头。</li>
-        <li>在<a href="#file">安装应用</a>选择构建生成的应用 <code>.bin</code>。</li>
-        <li>在 Passport 首页进入「应用」，选中刚安装的应用打开。</li>
-      </ol>
-    </details>
-    <details class="card" id="wifi-panel">
-      <summary>Wi-Fi 设置</summary>
-      <p>加入 2.4 GHz Wi-Fi 后，请按设备屏幕上的新地址重新打开网页。</p>
-      <form id="wifi-form">
-        <label>网络名称<input id="ssid" required maxlength="32" autocomplete="off"></label>
-        <label>网络密码<input id="password" type="password" maxlength="64" autocomplete="off"></label>
-        <button id="connect" class="secondary" type="submit">连接 Wi-Fi</button>
-      </form>
-    </details>
-    <details class="card" id="weather-panel">
-      <summary>首页天气</summary>
-      <p id="weather-city"></p>
-      <p>Passport 按所选城市向天气服务查询，回到首页后自动更新。</p>
-      <form id="weather-search">
-        <label>城市<input id="weather-query" required minlength="2" maxlength="80" placeholder="例如 台北或 Shanghai"></label>
-        <button id="weather-find" class="secondary" type="submit">搜索城市</button>
-      </form>
-      <form id="weather-results" hidden>
-        <label>匹配城市<select id="weather-choice" required></select></label>
-        <button id="weather-save" type="submit">设为天气城市</button>
-      </form>
-      <button id="weather-clear" class="secondary" type="button" hidden>关闭天气</button>
-      <p id="weather-status" role="status"></p>
-      <p><small>气温和天气由 <a href="https://api.met.no/weatherapi/locationforecast/2.0/documentation"
-        target="_blank" rel="noopener noreferrer">MET Norway</a> 提供，已取整和翻译。
-        <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener noreferrer">CC BY 4.0</a> ·
-        <a href="https://open-meteo.com/en/docs/geocoding-api" target="_blank" rel="noopener noreferrer">城市搜索</a></small></p>
-    </details>
   </div>
 </main>
+<dialog id="installer" aria-labelledby="install-heading">
+  <div class="dialog-head">
+    <h2 id="install-heading"></h2>
+    <button id="close-installer" class="secondary close" type="button" aria-label="关闭安装窗口"><span class="icon icon-close" aria-hidden="true"></span></button>
+  </div>
+  <div class="dialog-body">
+    <p id="install-limit" hidden></p>
+    <div id="upload-panel" data-install-panel hidden>
+      <form id="upload-form">
+        <label>Passport 应用 .bin<input type="file" id="file" accept=".bin,application/octet-stream" required></label>
+        <button id="install" type="submit">安装到 Passport</button>
+      </form>
+      <p id="upload-note" class="feedback" role="status"></p>
+    </div>
+    <div id="import-panel" data-install-panel hidden>
+      <p>选择社区下载的完整 .bin，检查后再安装。</p>
+      <form id="import-form">
+        <label>社区固件 .bin<input type="file" id="import-file" accept=".bin,application/octet-stream" required></label>
+        <p id="import-note" class="feedback" role="status"></p>
+        <div id="import-preview" hidden>
+          <p id="import-info"></p>
+          <label for="import-title">应用名称</label>
+          <div id="import-name"><span>Passport-</span><input id="import-title" aria-describedby="import-name-hint"
+            pattern="[A-Za-z0-9_\x2D]{1,22}" maxlength="22" autocomplete="off" spellcheck="false"></div>
+          <p id="import-name-hint">可用字母、数字、连字符或下划线。</p>
+          <button id="import-install" type="submit">安装此应用</button>
+        </div>
+      </form>
+    </div>
+    <div id="community-panel" data-install-panel hidden>
+      <form id="community-form">
+        <label>官网玩法链接
+          <input id="community-url" inputmode="url" required maxlength="512" autocapitalize="none"
+                 spellcheck="false" aria-describedby="community-hint community-note"
+                 placeholder="https://ai-passport.folotoy.cn/plays/1471/">
+        </label>
+        <p id="community-hint">设备连接可上网的 Wi-Fi 后，可自动下载、提取并安装。</p>
+        <button id="community-install" type="submit">下载并安装</button>
+        <p id="community-note" class="feedback" role="status"></p>
+      </form>
+    </div>
+  </div>
+</dialog>
+<dialog id="app-detail" aria-labelledby="app-title" aria-describedby="app-info">
+  <div class="dialog-head">
+    <h2 id="app-title"></h2>
+    <button id="close-app" class="secondary close" type="button" aria-label="关闭应用详情"><span class="icon icon-close" aria-hidden="true"></span></button>
+  </div>
+  <div class="dialog-body">
+    <p id="app-info"></p>
+    <a id="app-source" target="_blank" rel="noopener noreferrer" hidden></a>
+    <button id="app-remove" class="danger" type="button">移除应用</button>
+    <p id="app-note" class="feedback" role="status"></p>
+  </div>
+</dialog>
 <script>
   const $ = id => document.getElementById(id);
   const errors = {
@@ -236,6 +448,59 @@
   let inspected;
   let weatherSearching = false;
   let weatherMatches = [];
+  let selectedApp;
+  const viewButtons = [...document.querySelectorAll('[data-view]')];
+  const installButtons = [...document.querySelectorAll('[data-install]')];
+  const installPanels = [...document.querySelectorAll('[data-install-panel]')];
+  const installer = $('installer');
+  const appDetail = $('app-detail');
+
+  function showView(id, focus = true) {
+    $('install-menu').open = false;
+    for (const button of viewButtons) {
+      const active = button.dataset.view === id;
+      if (active) button.setAttribute('aria-current', 'page');
+      else button.removeAttribute('aria-current');
+      $(button.dataset.view).hidden = !active;
+    }
+    if (focus) $(id).querySelector('h2').focus();
+  }
+
+  for (const button of viewButtons) button.onclick = () => showView(button.dataset.view);
+
+  for (const button of installButtons) button.onclick = () => {
+    const kind = button.dataset.install;
+    $('install-heading').textContent = button.textContent;
+    for (const panel of installPanels) panel.hidden = panel.id !== kind + '-panel';
+    feedback('upload-note', '');
+    installer.showModal();
+    $('install-menu').open = false;
+    // The menu item that opened the dialog is hidden while the dialog is open.
+    installer.addEventListener('close', () => {
+      const trigger = button.id ? button : $('install-toggle');
+      if (!trigger.disabled && trigger.getClientRects().length) trigger.focus();
+    }, {once: true});
+  };
+
+  const installMenu = $('install-menu');
+  document.addEventListener('click', event => {
+    if (installMenu.open && !installMenu.contains(event.target)) installMenu.open = false;
+  });
+  installMenu.onkeydown = event => {
+    if (event.key === 'Escape' && installMenu.open) {
+      installMenu.open = false;
+      $('install-toggle').focus();
+      event.preventDefault();
+    }
+  };
+  $('install-toggle').onclick = event => {
+    if ($('install-toggle').getAttribute('aria-disabled') === 'true') event.preventDefault();
+  };
+  $('close-installer').onclick = () => installer.close();
+  $('close-app').onclick = () => appDetail.close();
+  for (const dialog of [installer, appDetail]) dialog.oncancel = event => {
+    if (working) event.preventDefault();
+  };
 
   function formatBytes(size) {
     if (size < 1024) return `${size} B`;
@@ -249,15 +514,18 @@
 
   function renderStorage({manager_ready, total_bytes, free_bytes}) {
     $('storage-summary').hidden = !manager_ready;
+    $('capacity').hidden = !manager_ready;
     $('storage-unavailable').hidden = manager_ready;
     if (!manager_ready) return;
     const used = total_bytes - free_bytes;
     $('storage-total').textContent = formatKiB(total_bytes);
     $('storage-used').textContent = formatKiB(used);
     $('storage-free').textContent = formatKiB(free_bytes);
-    const meter = $('storage-meter');
-    meter.max = total_bytes;
-    meter.value = used;
+    $('capacity-label').textContent = `应用存储剩余 ${formatKiB(free_bytes)}`;
+    for (const meter of [$('storage-meter'), $('capacity-meter')]) {
+      meter.max = total_bytes;
+      meter.value = used;
+    }
   }
 
   function apiHeaders() {
@@ -295,89 +563,143 @@
 
   function controls() {
     const unavailable = working || switchPending || state?.busy || state?.changing;
-    $('install').disabled = unavailable || !state?.manager_ready;
-    $('import-install').disabled = unavailable || !state?.manager_ready || !inspected;
+    const cannotInstall = unavailable || !state?.manager_ready;
+    $('install-toggle').setAttribute('aria-disabled', String(cannotInstall));
+    for (const button of installButtons) button.disabled = cannotInstall;
+    $('install').disabled = $('file').disabled = cannotInstall;
+    $('import-install').disabled = cannotInstall || !inspected;
     $('import-file').disabled = working || switchPending;
     $('import-title').disabled = working;
     $('community-url').disabled = working || switchPending;
-    $('community-install').disabled = unavailable || !state?.manager_ready;
-    $('connect').disabled = unavailable || state?.network === 'connecting';
+    $('community-install').disabled = cannotInstall;
+    const wifiBusy = unavailable || !['setup', 'online'].includes(state?.network);
+    $('scan-wifi').disabled = $('wifi-choice').disabled = $('connect').disabled = wifiBusy;
+    $('clear-wifi').disabled = wifiBusy || !state?.wifi_saved;
     $('weather-find').disabled = working || weatherSearching || !state;
     $('weather-save').disabled = working || weatherSearching || !state;
     $('weather-clear').disabled = working || !state;
-    for (const button of $('apps').querySelectorAll('button')) button.disabled = unavailable;
+    for (const button of $('apps').querySelectorAll('button')) button.disabled = unavailable || !state?.manager_ready;
+    $('app-remove').disabled = unavailable || !state?.manager_ready;
+    $('close-installer').disabled = $('close-app').disabled = working;
     $('prev-apps').disabled = unavailable || !state?.apps_offset;
     $('next-apps').disabled = unavailable || !state || state.apps_offset + state.apps.length >= state.app_count;
     $('disconnect').disabled = working || switchPending;
   }
 
   function render(next) {
+    const wifiError = next.wifi_error !== state?.wifi_error ? next.wifi_error : '';
     state = next;
     $('weather-city').textContent = next.weather_city ? '当前城市 ' + next.weather_city : '尚未设置城市';
     $('weather-clear').hidden = !next.weather_city;
     const network = {setup: '配网热点', online: 'Wi-Fi 已连接', connecting: '正在连接 Wi-Fi', failed: '网络不可用'};
     $('connection').textContent = network[next.network] || '正在启动';
+    $('connection').dataset.network = next.network;
+    $('wifi-saved').textContent = `已保存 ${next.wifi_saved_count ?? Number(next.wifi_saved)} / 2 组网络`;
     renderStorage(next);
     $('install-limit').hidden = !next.manager_ready;
-    if (next.manager_ready) $('install-limit').textContent = `单个应用最多 ${formatKiB(next.max_app_bytes)}。`;
+    if (next.manager_ready) {
+      const limit = `单个应用最多 ${formatKiB(next.max_app_bytes)}。`;
+      $('install-limit').textContent = $('storage-limit').textContent = limit;
+    }
+    $('app-count').hidden = $('apps').hidden = !next.manager_ready;
+    $('app-count').textContent = `${next.app_count} 个应用`;
     $('apps-empty').hidden = !next.manager_ready || next.app_count !== 0;
-    $('app-pages').hidden = next.app_count <= next.page_size;
+    $('apps-unavailable').hidden = next.manager_ready;
+    $('app-pages').hidden = !next.manager_ready || next.app_count <= next.page_size;
     const updated = JSON.stringify(next.apps);
     if (catalogue !== updated) {
       catalogue = updated;
       $('apps').replaceChildren(...next.apps.map(app => {
-        const row = document.createElement('li');
-        const label = document.createElement('div');
+        const item = document.createElement('li');
+        const tile = document.createElement('button');
+        const symbol = document.createElement('span');
+        const label = document.createElement('span');
         const name = document.createElement('strong');
         const detail = document.createElement('small');
-        name.textContent = app.title || (app.name === 'Passport-Pomodoro' ? '番茄钟' : app.name.slice(9));
+        tile.type = 'button';
+        tile.className = 'app-tile';
+        tile.setAttribute('aria-haspopup', 'dialog');
+        symbol.className = 'app-symbol';
+        symbol.setAttribute('aria-hidden', 'true');
+        const pomodoro = app.name === 'Passport-Pomodoro';
+        const communityApp = typeof app.play_id === 'string' && /^[1-9]\d{0,15}$/.test(app.play_id);
+        if (communityApp) symbol.dataset.kind = 'community';
+        else if (pomodoro) symbol.dataset.kind = 'pomodoro';
+        const glyph = document.createElement('span');
+        glyph.className = 'icon ' + (communityApp ? 'icon-game' : pomodoro ? 'icon-timer' : 'icon-dev');
+        symbol.append(glyph);
+        const more = document.createElement('span');
+        more.className = 'icon icon-more';
+        more.setAttribute('aria-hidden', 'true');
+        name.className = 'app-name';
+        detail.className = 'app-meta';
+        name.textContent = app.title || (pomodoro ? '番茄钟' : app.name.slice(9));
         detail.textContent = [formatBytes(app.size), app.version].filter(Boolean).join(' · ');
-        if (typeof app.play_id === 'string' && /^[1-9]\d{0,15}$/.test(app.play_id)) {
-          const source = document.createElement('a');
-          source.href = `https://ai-passport.folotoy.cn/plays/${app.play_id}/`;
-          source.target = '_blank';
-          source.rel = 'noopener noreferrer';
-          source.textContent = `社区玩法 #${app.play_id}`;
-          detail.append(' · ', source);
-        }
         label.append(name, detail);
-        row.append(label);
-        const remove = document.createElement('button');
-        remove.type = 'button';
-        remove.className = 'secondary';
-        remove.textContent = '移除';
-        remove.setAttribute('aria-label', '移除 ' + name.textContent);
-        remove.onclick = () => {
-          if (confirm(`移除「${name.textContent}」？`)) run(async () => {
-            await api('apps', 'DELETE', {name: app.name});
-            $('notice').textContent = '应用已移除。';
-          });
+        tile.append(symbol, label, more);
+        tile.onclick = () => {
+          selectedApp = app.name;
+          $('app-title').textContent = name.textContent;
+          $('app-info').textContent = detail.textContent;
+          const source = $('app-source');
+          source.hidden = !communityApp;
+          if (communityApp) {
+            source.href = `https://ai-passport.folotoy.cn/plays/${app.play_id}/`;
+            source.textContent = `社区玩法 #${app.play_id}`;
+          }
+          feedback('app-note', '');
+          appDetail.showModal();
         };
-        row.append(remove);
-        return row;
+        item.append(tile);
+        return item;
       }));
     }
-    if (next.wifi_error === 'wifi_timeout') $('notice').textContent = '连接超时。设备已返回配网热点。';
-    if (next.wifi_error === 'wifi_save') $('notice').textContent = 'Wi-Fi 已连接，保存失败。';
+    if (wifiError === 'wifi_timeout') $('notice').textContent = '连接超时。设备已返回配网热点。';
+    if (wifiError === 'wifi_save') $('notice').textContent = 'Wi-Fi 已连接，保存失败。';
+    if (wifiError === 'wifi_fallback') $('notice').textContent = '新网络连接失败，设备已连接到已保存的网络。';
     controls();
   }
 
+  $('app-remove').onclick = () => {
+    if (!confirm(`移除「${$('app-title').textContent}」？`)) return;
+    run(async () => {
+      feedback('app-note', '');
+      await api('apps', 'DELETE', {name: selectedApp});
+      appDetail.close();
+      $('apps-title').focus();
+      $('notice').textContent = '应用已移除。';
+    }, undefined, error => {
+      if (appDetail.open) feedback('app-note', error, true);
+      else $('notice').textContent = error;
+    });
+  };
+
   function disconnect(message) {
+    const wasConnected = !$('console').hidden;
     code = '';
     state = undefined;
     switchPending = false;
+    installer.close();
+    appDetail.close();
+    $('upload-form').reset();
+    $('wifi-form').reset();
+    $('wifi-results').hidden = $('scan-status').hidden = true;
     resetImport();
     $('community-form').reset();
     communityNote('');
     weatherMatches = [];
     $('weather-results').hidden = true;
     $('connection').textContent = '等待连接';
+    delete $('connection').dataset.network;
     $('unlock-note').textContent = message;
     $('console').hidden = true;
+    $('disconnect').hidden = true;
     $('unlock').hidden = false;
+    showView('desktop', false);
+    if (wasConnected || message) $('code').focus();
   }
 
-  async function run(action, offset = state?.apps_offset || 0) {
+  async function run(action, offset = state?.apps_offset || 0, showError = error => { $('notice').textContent = error; }) {
     if (working || switchPending) return;
     working = true;
     controls();
@@ -387,7 +709,7 @@
       if (state && !switchPending) render(await api('state?offset=' + offset));
     } catch (error) {
       if (error.message === 'code') disconnect(errors.expired);
-      else $('notice').textContent = errors[error.message] || errors.unavailable;
+      else showError(errors[error.message] || errors.unavailable);
     } finally {
       working = false;
       controls();
@@ -413,11 +735,13 @@
           notice = '这次已连接，但未能记住浏览器。';
         }
       }
+      $('notice').textContent = notice;
       render(next);
       $('code').value = '';
       $('unlock').hidden = true;
       $('console').hidden = false;
-      $('notice').textContent = notice;
+      $('disconnect').hidden = false;
+      if (manual) $('apps-title').focus();
     } catch (error) {
       disconnect(!manual && error.message === 'code' ? '' : errors[error.message] || errors.unavailable);
     } finally {
@@ -435,32 +759,46 @@
     await api('session', 'DELETE');
     disconnect('');
   });
-  async function install(file, note = message => { $('notice').textContent = message; }, metadataHeaders) {
+  async function install(file, note, metadataHeaders) {
     render(await api('state?offset=' + state.apps_offset));
     if (!state.manager_ready) throw new Error('unavailable');
     if (file.size > state.max_app_bytes) throw new Error('app_too_large');
     if (!metadataHeaders && file.size > state.free_bytes) throw new Error('space');
     note('正在上传并校验应用…');
     await api('apps', 'POST', file, metadataHeaders);
-    note('安装完成。请在 Passport 上选择应用，按确定键打开。');
+  }
+
+  function finishInstall(message = '安装完成。请在 Passport 上选择应用，按确定键打开。') {
+    installer.close();
+    showView('desktop');
+    $('notice').textContent = message;
+  }
+
+  function feedback(id, message, error = false) {
+    $(id).textContent = message;
+    $(id).toggleAttribute('data-error', error);
   }
 
   $('upload-form').onsubmit = event => {
     event.preventDefault();
     const file = $('file').files[0];
     if (!file?.size) {
-      $('notice').textContent = errors.size;
+      feedback('upload-note', errors.size, true);
       return;
     }
     run(async () => {
-      await install(file);
+      feedback('upload-note', '');
+      await install(file, message => feedback('upload-note', message));
       $('file').value = '';
+      finishInstall();
+    }, undefined, error => {
+      if (installer.open) feedback('upload-note', error, true);
+      else $('notice').textContent = error;
     });
   };
 
   function importNote(message, error = false) {
-    $('import-note').textContent = message;
-    $('import-note').toggleAttribute('data-error', error);
+    feedback('import-note', message, error);
   }
 
   function resetImport(message = '') {
@@ -505,20 +843,18 @@
         importNote('正在准备应用…');
         const name = $('import-title').value.trim();
         const image = community.makeUpload(inspected.image, name);
-        importNote('正在上传应用…');
-        await install(new File([image], 'Passport-' + name + '.bin', {type: 'application/octet-stream'}));
-        resetImport('安装完成。');
+        await install(new File([image], 'Passport-' + name + '.bin', {type: 'application/octet-stream'}), importNote);
+        resetImport();
+        finishInstall();
       } catch (error) {
         if (error.message === 'code') throw error;
-        $('notice').textContent = '';
         importNote(errors[error.message] || errors.unavailable, true);
       }
     });
   };
 
   function communityNote(message, error = false) {
-    $('community-note').textContent = message;
-    $('community-note').toggleAttribute('data-error', error);
+    feedback('community-note', message, error);
   }
 
   async function communityRequest(query) {
@@ -563,7 +899,8 @@
                         'X-Passport-Play-Id': String(firmware.id)
                       });
         $('community-form').reset();
-        communityNote(`《${firmware.title}》已安装。`);
+        communityNote('');
+        finishInstall(`《${firmware.title}》已安装。请在 Passport 上选择并打开。`);
       } catch (error) {
         if (error.message === 'code') throw error;
         communityNote(errors[error.message] || errors.community_fetch, true);
@@ -629,6 +966,47 @@
     $('weather-results').hidden = true;
     $('weather-status').textContent = '天气已关闭。';
   });
+  $('scan-wifi').onclick = () => run(async () => {
+    $('wifi-results').hidden = true;
+    const status = $('scan-status');
+    status.hidden = false;
+    status.textContent = '正在扫描…';
+    try {
+      await api('wifi/scan', 'POST');
+      const deadline = Date.now() + 9000;
+      while (Date.now() < deadline) {
+        await new Promise(resolve => setTimeout(resolve, 400));
+        const scan = await api('wifi/scan');
+        if (scan.status === 'scanning') continue;
+        if (scan.status !== 'done') break;
+        $('wifi-choice').replaceChildren(new Option('选择网络', ''), ...scan.networks.map(({ssid, rssi, open}) =>
+          new Option(`${ssid} · ${rssi} dBm${open ? ' · 开放' : ''}`, ssid)));
+        $('wifi-results').hidden = !scan.networks.length;
+        status.textContent = scan.networks.length ? `找到 ${scan.networks.length} 个网络` : '未找到可选网络，可手动输入网络名称。';
+        return;
+      }
+      status.textContent = '扫描未完成，请重试或手动输入网络名称。';
+    } catch (error) {
+      status.textContent = '扫描失败，请重试或手动输入网络名称。';
+      throw error;
+    }
+  });
+  $('wifi-choice').onchange = () => {
+    const ssid = $('wifi-choice').value;
+    if (!ssid) return;
+    if ($('ssid').value !== ssid) $('password').value = '';
+    $('ssid').value = ssid;
+    $('password').focus();
+  };
+  $('ssid').oninput = () => { $('wifi-choice').value = ''; };
+  $('clear-wifi').onclick = () => {
+    if (!confirm('清除设备上所有已保存的 Wi-Fi 网络？')) return;
+    run(async () => {
+      await api('wifi', 'DELETE');
+      switchPending = state.network === 'online';
+      $('notice').textContent = switchPending ? '已清除网络。请加入设备屏幕显示的配网热点。' : '已清除已保存的网络。';
+    });
+  };
   $('wifi-form').onsubmit = event => {
     event.preventDefault();
     run(async () => {
