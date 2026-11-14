@@ -20,29 +20,37 @@ def package(manager, claw, pomodoro, output):
     partitions, _ = parse_partition_table(table)
     parts = {part.label: part for part in partitions}
     app_parts = {(part.label, part.subtype) for part in partitions if part.kind == 0}
-    if app_parts != {("manager", 0), ("app_run", 16)} or [
-        (part.kind, part.subtype) for part in (parts["otadata"], parts["app_store"])
-    ] != [(1, 0), (1, 0x83)]:
+    if app_parts != {("system", 0), ("app_pool", 16)} or [
+        (part.kind, part.subtype) for part in (parts["otadata"], parts["app_boot"], parts["app_meta"])
+    ] != [(1, 0), (1, 0x40), (1, 0x83)]:
         raise ValueError("incorrect app manager partition types")
-    if "CONFIG_BOOTLOADER_APP_ROLLBACK_ENABLE=y" not in (manager / "sdkconfig").read_text().splitlines():
-        raise ValueError("the manager bootloader must return to factory after one app boot")
+    if [(parts[label].offset, parts[label].size) for label in ("nvs", "phy_init", "app_boot")] != [
+        (0x9000, 0x6000), (0xF000, 0x1000), (0x12000, 0x1000)
+    ]:
+        raise ValueError("Runner partition table changes the settings or boot request address")
 
     flash = parse_flash_args((manager / "flash_args").read_text())
     merged = (manager / FULL_BIN).read_bytes()
-    if flash["FoloToy-AI-Passport.bin"] != parts["manager"].offset:
-        raise ValueError("manager is not in the factory partition")
+    if flash["FoloToy-AI-Passport.bin"] != parts["system"].offset:
+        raise ValueError("Runner system is not in the factory partition")
+    if b"Starting Runner system" not in (manager / "bootloader/bootloader.bin").read_bytes():
+        raise ValueError("the Runner build is missing its bootloader")
     if flash["ota_data_initial.bin"] != parts["otadata"].offset or merged[
         parts["otadata"].offset : parts["otadata"].end
     ] != b"\xff" * parts["otadata"].size:
         raise ValueError("the merged image must start with blank OTA boot selection")
-    run = parts["app_run"]
-    store = parts["app_store"]
-    if merged[run.offset : run.end] != b"\xff" * run.size:
-        raise ValueError("the shared boot partition must start blank")
-    store_image = (manager / "app_store.bin").read_bytes()
-    if (flash["app_store.bin"] != store.offset or len(store_image) != store.size
+    pool = parts["app_pool"]
+    store = parts["app_meta"]
+    if (pool.offset % 0x10000 or pool.size % 0x10000 or
+            parts["system"].end != pool.offset or pool.end != store.offset):
+        raise ValueError("Runner requires an aligned and contiguous app pool")
+    for part in (parts["app_boot"], pool):
+        if merged[part.offset : part.end] != b"\xff" * part.size:
+            raise ValueError(f"{part.label} must start blank")
+    store_image = (manager / "app_meta.bin").read_bytes()
+    if (flash["app_meta.bin"] != store.offset or len(store_image) != store.size
             or merged[store.offset : store.end] != store_image):
-        raise ValueError("the merged image must initialize the shared LittleFS partition")
+        raise ValueError("the merged image must initialize the app catalog")
 
     for build, project in (
         (claw, "Passport-ESP-Claw"),
@@ -53,7 +61,7 @@ def package(manager, claw, pomodoro, output):
         files = {ext: (build / f"{project}.{ext}").read_bytes() for ext in ("bin", "elf", "map")}
         app = files["bin"]
         descriptor = application_descriptor(app)
-        if len(app) > min(run.size, store.size) or descriptor["project_name"] != project:
+        if len(app) > pool.size or descriptor["project_name"] != project:
             raise ValueError(f"incorrect {project} identity or size")
         if descriptor["embedded_elf_sha256"] != sha256(files["elf"]):
             raise ValueError(f"{project} ELF does not match the application image")

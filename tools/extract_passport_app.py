@@ -74,9 +74,9 @@ def read_app(data: bytes) -> tuple[bytes, dict[str, str]]:
 def manager_limit() -> int:
     with MANAGER_TABLE.open(encoding="utf-8") as table:
         for row in csv.reader(line for line in table if not line.lstrip().startswith("#")):
-            if row and row[0].strip() == "app_run":
+            if row and row[0].strip() == "app_pool":
                 return int(row[4].strip(), 0)
-    raise ValueError("manager partition table has no app_run")
+    raise ValueError("manager partition table has no app_pool")
 
 
 def prepare_upload(app: bytes, descriptor: dict[str, str], name: str, partitions: list[Partition]) -> bytes:

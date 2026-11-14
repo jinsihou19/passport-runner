@@ -3,6 +3,8 @@
 import argparse
 import re
 from pathlib import Path
+from struct import pack, unpack_from
+from zlib import crc32
 
 ROOT = Path(__file__).resolve().parents[1]
 UI = [
@@ -11,14 +13,70 @@ UI = [
     ROOT / "main/apps/pomodoro/passport_pomodoro.c",
 ]
 OUTPUT = ROOT / "assets/fonts/passport_cjk_16.c"
+TITLE_FONT = ROOT / "assets/fonts/runner-cjk.pfnt"
 ASCII = range(0x20, 0x7F)
-# Additional glyphs needed by the Gold Miner community title.
-COMMUNITY_TITLES = "黄金矿工：地底逃亡"
+# Keep these community titles in the shared UI font subset.
+COMMUNITY_TITLES = (
+    "黄金矿工：地底逃亡",
+    "8号出口",
+    "超级玛丽：说话发射火球",
+)
+
+
+def title_characters():
+    common = {bytes((row, column)).decode("gb2312") for row in range(0xB0, 0xD8)
+              for column in range(0xA1, 0xFA if row == 0xD7 else 0xFF)}
+    assert len(common) == 3755
+    return sorted(common | set("·—‘’“”…、。〈〉《》「」『』【】！（），：；？"))
+
+
+def generate_title_font(path):
+    from fontTools.ttLib import TTFont
+    from PIL import Image, ImageDraw, ImageFont
+
+    chars = title_characters()
+    with TTFont(path) as source:
+        cmap = source.getBestCmap()
+        if missing := [char for char in chars if ord(char) not in cmap]:
+            raise ValueError("Missing in source font: " + "".join(missing))
+    font = ImageFont.truetype(path, 16, layout_engine=ImageFont.Layout.BASIC)
+    payload = bytearray(pack(f"<{len(chars)}H", *map(ord, chars)))
+    for char in chars:
+        left, top, right, bottom = font.getbbox(char, anchor="ls")
+        if not (0 <= left < right <= 16 and -15 <= top < bottom <= 5):
+            raise ValueError(f"Glyph U+{ord(char):04X} does not fit the title font cell")
+        cell = Image.new("L", (16, 20))
+        ImageDraw.Draw(cell).text((0, 15), char, font=font, fill=255, anchor="ls")
+        pixels = [(value * 3 + 127) // 255 for value in cell.tobytes()]
+        if not any(pixels):
+            raise ValueError(f"Blank glyph for U+{ord(char):04X}")
+        for i in range(0, len(pixels), 4):
+            a, b, c, d = pixels[i:i + 4]
+            payload.append((a << 6) | (b << 4) | (c << 2) | d)
+    data = pack("<4sII", b"PCF1", len(chars), crc32(payload)) + payload
+    TITLE_FONT.write_bytes(data)
+    print(f"Runner title font: {len(chars)} glyphs, {len(data)} bytes")
+
+
+def check_title_font():
+    data = TITLE_FONT.read_bytes()
+    magic, count, checksum = unpack_from("<4sII", data)
+    chars = title_characters()
+    if (magic != b"PCF1" or count != len(chars) or len(data) != 12 + count * 82
+            or crc32(data[12:]) != checksum or data[12:12 + count * 2] != pack(f"<{count}H", *map(ord, chars))):
+        raise ValueError("Runner title font does not match its character set or checksum")
+    start = 12 + count * 2
+    if any(not any(data[i:i + 80]) for i in range(start, len(data), 80)):
+        raise ValueError("Runner title font contains a blank glyph")
+    for title in (*COMMUNITY_TITLES, "魔法冒险", "梦幻西游"):
+        if not set(title) <= set(chars) | set(map(chr, ASCII)):
+            raise ValueError(f"Runner title font does not cover {title}")
+    print(f"Runner title font: {count} glyphs, {len(data)} bytes")
 
 
 def characters():
     texts = [path.read_text(encoding="utf-8") for path in UI]
-    return sorted({ord(char) for text in [*texts, COMMUNITY_TITLES] for char in text if ord(char) > 0x7F})
+    return sorted({ord(char) for text in [*texts, *COMMUNITY_TITLES] for char in text if ord(char) > 0x7F})
 
 
 def check(source, expected_pixels=None):
@@ -146,8 +204,12 @@ if __name__ == "__main__":
     mode = parser.add_mutually_exclusive_group(required=True)
     mode.add_argument("--check", action="store_true")
     mode.add_argument("--font", type=Path)
+    mode.add_argument("--title-font", type=Path, metavar="OTF")
     args = parser.parse_args()
     if args.check:
         check(OUTPUT.read_text(encoding="utf-8"))
+        check_title_font()
+    elif args.title_font:
+        generate_title_font(args.title_font)
     else:
         generate(args.font)

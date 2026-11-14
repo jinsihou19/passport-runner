@@ -38,6 +38,10 @@ run_static_checks() {
         tests/test_passport_manage_menu.c main/runner/passport_manage_menu.c \
         -o "${test_dir}/test_passport_manage_menu"
     "${test_dir}/test_passport_manage_menu"
+    "${CC:-cc}" -std=c11 -Wall -Wextra -Werror -Imain/runner \
+        tests/test_passport_app_pool.c main/runner/passport_app_pool.c \
+        -o "${test_dir}/test_passport_app_pool"
+    "${test_dir}/test_passport_app_pool"
     "${CC:-cc}" -std=c11 -D_POSIX_C_SOURCE=200809L -Wall -Wextra -Werror -Imain/runner \
         tests/test_passport_launcher.c main/runner/passport_launcher.c \
         -o "${test_dir}/test_passport_launcher"

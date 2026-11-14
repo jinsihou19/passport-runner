@@ -66,7 +66,7 @@ For a fresh installation, connect the Passport with a USB data cable and replace
 python -m esptool --chip esp32c3 --port PORT write_flash 0x0 build/FoloToy-AI-Passport-full.bin
 ```
 
-Flashing the merged image overwrites NVS and the app library. On an existing Runner installation, check the partition table and follow the [firmware layout guide](docs/development/engineering/firmware-layout.md#flashing-and-stored-data) for a manager-only update that preserves saved Wi-Fi, browser pairings, and apps.
+Flashing the merged image overwrites NVS and the app library. Migrating from the old `manager` and `app_run` layout can preserve settings while clearing the app library. Migrating from the 128 KiB `app_meta` layout can also preserve installed apps. Once the layout matches, a `system`-only update preserves settings and apps. See the [Runner guide](docs/development/passport-app-manager.md#build-and-package).
 
 ## Install an app
 
@@ -74,7 +74,7 @@ Flashing the merged image overwrites NVS and the app library. On an existing Run
 2. Open the address shown on the device and sign in with the same code. Upload the ESP-Claw or Pomodoro `.bin` in **Install App**.
 3. Hold UP to return home, open **Apps**, select the app, and press OK. Hold UP inside either bundled app to return to Runner.
 
-The shared app library holds **4,160 KiB**, with a **2,368 KiB** limit per app. The web page shows the available space. Runner can also import compatible merged images from the community. See the [Runner guide](docs/development/passport-app-manager.md).
+The shared app library holds **5,952 KiB (5.81 MiB)**. One app can use the entire library when it is empty. The web page shows the available space. Runner can also import compatible merged images from the community. See the [Runner guide](docs/development/passport-app-manager.md).
 
 To get started with ESP-Claw, open its connection screen and visit the address shown on the Passport. In **Device Settings**, enter the model base URL (typically ending in `/v1`), the model name, and any required API key, then join a 2.4 GHz Wi-Fi network. Once connected, send your first instruction in **Chat**. See the [ESP-Claw guide](docs/development/esp-claw-passport.md).
 

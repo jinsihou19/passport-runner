@@ -17,8 +17,8 @@ a manager page.
   and opens the Wi-Fi setup page. Passport green is the default. Display, theme,
   and brightness choices persist across restarts.
 
-Installed apps share 4,160 KiB of Flash. Each binary must fit the 2,368 KiB
-shared boot partition. The **Passport Runner** web console opens on the app
+Installed apps share 5,952 KiB (5.81 MiB) of Flash. A single app can use
+the whole pool when empty. The **Passport Runner** web console opens on the app
 desktop. Select an app to see its details, open its community page if available,
 or remove it. The sidebar links to Wi-Fi, home weather, app storage, and
 development. **App storage** shows total, used, and free space and the per-app limit.
@@ -50,11 +50,17 @@ unavailable state if it has no usable forecast.
    images across a restart. To reclaim space, open the app's details on the web
    desktop and select **Remove app**.
 
-When you open an uploaded app, the manager copies it to the shared boot
-partition and restarts into it. The factory manager enables the ESP-IDF OTA
-rollback mechanism and leaves each selected app pending verification. The
-next reset, including a power cycle after an app stops responding, boots the
-manager. Switching apps uses the same NVS partition for Wi-Fi, ESP-Claw settings,
+Runner restarts into the app at its installed address. The bootloader
+consumes the request before starting the app. The next reset, including a
+power cycle after an app stops responding, boots Runner.
+
+Each image starts at a 64 KiB boundary and uses a multiple of 64 KiB. Runner
+fills existing gaps first. When the total free space is enough and no
+single gap fits the new app, Runner moves installed apps toward the start
+of the pool until there is room. It checks and records each 64 KiB step
+in the catalog, so a reset during a move resumes it on the next boot.
+
+Switching apps uses the same NVS partition for Wi-Fi, ESP-Claw settings,
 and saved timer state. Each boot generates a new eight-character code.
 
 ## Configure Wi-Fi
@@ -111,11 +117,13 @@ official download to the browser, which verifies it against the published
 SHA-256, extracts the app, and installs it if all checks pass. Only the
 extracted app takes up space in the library. Open it from the device's app list.
 
-The official play title appears in the web and device app lists. The device
-uses the app identifier when its screen font lacks a character in the title.
+The official play title appears in the web and device app lists. Runner reads
+3,755 common Chinese characters and 26 punctuation marks from a font built
+into the Runner system image. Apps use their own fonts after they launch. The device uses the app identifier when the title has a character
+outside its fonts.
 Long-press OK on an app to see its community play ID. On the web desktop, select
-the app and click the ID to open the official play page. To add this metadata to an older
-installation, paste the same play link again. Runner updates the metadata when
+the app and click the ID to open the official play page. To add this metadata
+to an older installation, paste the same play link again. Runner updates it when
 the downloaded app matches the installed image byte for byte. A local `.bin`
 has no official play metadata.
 
@@ -124,8 +132,8 @@ ESP32-C3 factory app, a valid partition table and an ESP-IDF SHA-256 trailer.
 It recognizes the legacy FoloToy `recovery` and `cardid` reservations when
 their declared layouts match and the bundle carries no data for either slot.
 The importer rejects other extra partitions and data outside the app. The
-extracted image must fit the 2,368 KiB shared boot partition and the free space
-shown on the device. Successful installation verifies the image format. The original
+extracted image must fit the free space shown on the device after rounding
+its size up to 64 KiB. Successful installation verifies the image format. The original
 app controls remain in effect, so an app without a return gesture can return
 to the manager by restarting the device.
 
@@ -168,17 +176,37 @@ The root CMake file selects the target through `PASSPORT_APP`: `manager` (defaul
 
 Activate ESP-IDF 5.5.3 and run `./tools/validate.sh`. The gate builds all three
 apps and verifies the [8 MiB partition table](../../main/runner/partitions.apps.csv). It
-archives the `0x0` merged image with the manager in `factory`, an empty
-LittleFS `app_store`, and a blank `app_run` in `ota_0`. Use
-`build/FoloToy-AI-Passport-full.bin` for a new installation. Its matching
-manager ELF is under `build/firmware/`. The gate prints the paths to the
-separate `Passport-ESP-Claw.bin` and `Passport-Pomodoro.bin` uploads under
-`build/apps/`, where it also archives their debug artifacts.
+archives the merged image with the 2 MiB `system` partition, a blank
+`app_pool`, and an empty LittleFS catalog in the 64 KiB `app_meta`. Flash
+`build/FoloToy-AI-Passport-full.bin` at `0x0` for a new installation. The
+matching Runner ELF is under `build/firmware/`. The gate prints the paths to
+the separate `Passport-ESP-Claw.bin` and `Passport-Pomodoro.bin` uploads
+under `build/apps/`, where it also archives their debug artifacts.
 
-A merged flash overwrites NVS and the app store. For an existing installation
-with the same partition table, updating only the manager at `0x20000` preserves
-Wi-Fi, browser pairings, and installed apps.
+A merged flash overwrites NVS and the app library. To migrate from the
+old `manager`/`app_run` layout and keep settings, verify the device's old
+partition table first. Flash the new bootloader, partition table, and
+the merged image's bytes at `0x10000` through `0x7fffff` as separate address
+ranges. This replaces the old app library and skips the existing NVS
+and PHY data. Keep the device in download mode until all ranges are
+written and verified. Later updates with this same layout can flash
+only `system` at `0x20000` to keep settings and installed apps.
 [Flashing and stored data](engineering/firmware-layout.md#flashing-and-stored-data)
+
+To upgrade from the 128 KiB `app_meta` layout and keep installed apps, verify
+the device's partition table, then read the old catalog partition from
+`0x7e0000` for `0x20000` bytes. Run the migration tool with
+`littlefs-python==0.15.0` installed in the Python environment.
+
+```bash
+python3 tools/migrate_passport_app_meta.py app-meta-old.bin app-meta-new.bin
+```
+
+While the device stays in download mode, write the converted image at
+`0x7f0000`, the new Runner application at `0x20000`, and the verified
+partition table at `0x8000` last. Verify all three writes before booting.
+Existing app images stay at their original addresses. NVS and PHY data stay
+outside the write ranges.
 
 ## Develop an app
 
@@ -187,6 +215,5 @@ image for the Passport layout and BSP. Use a project name that starts with `Pass
 ASCII letter, digit, hyphen, or underscore suffix and a total of at most 31
 characters. Upload the application `.bin` with its ESP-IDF image SHA-256 trailer.
 The manager checks the target, size, and complete image before listing it. A
-compatible app leaves its OTA boot state pending and calls `esp_restart()` for
-the return gesture. Install native images you trust, as apps run with firmware
+compatible app calls `esp_restart()` for the return gesture. Install native images you trust, as apps run with firmware
 access to the device.

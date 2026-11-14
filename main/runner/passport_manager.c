@@ -16,6 +16,7 @@
 #include "passport_launcher.h"
 #include "passport_manage_menu.h"
 #include "passport_network.h"
+#include "passport_title_font.h"
 #include "passport_weather.h"
 #include "passport_web.h"
 
@@ -224,7 +225,7 @@ static void init_apps(lv_obj_t *page, const lv_font_t *font)
     text_align(s_position, LV_TEXT_ALIGN_RIGHT);
     for (size_t i = 0; i < VISIBLE_APPS; ++i) {
         s_app_rows[i] = tile(page, 0, 29 + (int)i * 51, PAGE_WIDTH, 43, TILE);
-        s_names[i] = label(s_app_rows[i], 12, 10, 184, WHITE, font, "");
+        s_names[i] = label(s_app_rows[i], 12, 10, 184, WHITE, passport_title_font(), "");
         lv_obj_set_height(s_names[i], 23);
         lv_label_set_long_mode(s_names[i], LV_LABEL_LONG_MODE_DOTS);
     }
@@ -264,7 +265,7 @@ static void init_settings(lv_obj_t *page, const lv_font_t *font)
 static void init_management(lv_obj_t *page, const lv_font_t *font)
 {
     s_manage_title = label(page, 0, 0, PAGE_WIDTH, THEME_TEXT, font, "");
-    s_manage_name = label(page, 0, 30, PAGE_WIDTH, WHITE, font, "");
+    s_manage_name = label(page, 0, 30, PAGE_WIDTH, WHITE, passport_title_font(), "");
     lv_obj_set_height(s_manage_name, 44);
     lv_label_set_long_mode(s_manage_name, LV_LABEL_LONG_MODE_DOTS);
     s_manage_info = label(page, 0, 75, PAGE_WIDTH, MUTED, font, "");
@@ -312,10 +313,11 @@ static bool init_display(uint8_t brightness)
 
 static bool title_has_glyphs(const char *title)
 {
+    const lv_font_t *font = passport_title_font();
     lv_font_glyph_dsc_t glyph;
     for (uint32_t index = 0; title[index];) {
         uint32_t codepoint = lv_text_encoded_next(title, &index);
-        if (!lv_font_get_glyph_dsc(&passport_cjk_16, &glyph, codepoint, 0) || glyph.is_placeholder) return false;
+        if (!lv_font_get_glyph_dsc(font, &glyph, codepoint, 0) || glyph.is_placeholder) return false;
     }
     return true;
 }
@@ -683,6 +685,7 @@ void app_main(void)
         err = passport_apps_init();
     }
     if (err != ESP_OK) ESP_LOGE(TAG, "App manager unavailable: %s", esp_err_to_name(err));
+    passport_title_font_init();
     manager.display = init_display(passport_launcher_brightness(&manager.prefs));
     err = passport_network_init();
     if (err == ESP_OK) err = passport_web_start();

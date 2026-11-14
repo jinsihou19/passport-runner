@@ -66,7 +66,7 @@ idf.py --version
 python -m esptool --chip esp32c3 --port PORT write_flash 0x0 build/FoloToy-AI-Passport-full.bin
 ```
 
-整包刷写会覆盖设备的 NVS 和应用库。已经安装 Runner 并想保留 Wi-Fi、浏览器配对和应用时，先核对分区表，再按[固件布局与存储说明](docs/development/engineering/firmware-layout.zh_CN.md#烧录与已存数据)更新管理器分区。
+整包刷写会覆盖设备的 NVS 和应用库。从旧版 `manager` 和 `app_run` 布局迁移时，可保留设置并清除旧应用。从 128 KiB `app_meta` 布局升级时，还可以保留已装应用。分区表一致时，可只更新 `system`，保留设置和应用。详见 [Runner 使用指南](docs/development/passport-app-manager.zh_CN.md#构建和打包)。
 
 ## 安装应用
 
@@ -74,7 +74,7 @@ python -m esptool --chip esp32c3 --port PORT write_flash 0x0 build/FoloToy-AI-Pa
 2. 在浏览器打开设备屏幕上的地址，用同一个连接码登录。在 **安装应用** 里上传 ESP-Claw 或番茄钟的 `.bin`。
 3. 长按上键回首页，进入 **应用**，选中刚装好的应用，按确定键启动。想回 Runner 时，长按上键。
 
-应用库共用 **4,160 KiB** 存储空间，单个应用上限为 **2,368 KiB**。网页会显示实际余量。想试玩法社区的固件，可以从网页导入符合格式要求的社区整包。详见 [Runner 使用指南](docs/development/passport-app-manager.zh_CN.md)。
+应用库共用 **5,952 KiB（5.81 MiB）**，空库时一个应用可用全部空间。网页会显示实际余量。想试玩法社区的固件，可以从网页导入符合格式要求的社区整包。详见 [Runner 使用指南](docs/development/passport-app-manager.zh_CN.md)。
 
 第一次用 ESP-Claw 时，在设备上切到连接页，打开屏幕显示的网页。在 **设备设置** 填入模型基地址（通常以 `/v1` 结尾）、模型名和所需的 API 密钥，并将 Passport 接入 2.4 GHz Wi-Fi。联网后在 **对话** 中发送第一条指令。详见 [ESP-Claw 配置和按键说明](docs/development/esp-claw-passport.zh_CN.md)。
 
