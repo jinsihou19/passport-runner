@@ -3,6 +3,7 @@
 #include <dirent.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <inttypes.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -17,14 +18,17 @@
 #include "esp_system.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/semphr.h"
+#include "passport_config.h"
 
 #define STORE_LABEL "app_store"
 #define STORE_PATH "/apps"
 #define UPLOAD_PATH STORE_PATH "/.upload"
+#define TITLE_UPLOAD_PATH STORE_PATH "/.title-upload"
 
 static const char TAG[] = "passport_apps";
 static const char APP_PREFIX[] = "Passport-";
-enum { UPLOAD_CHUNK = 4096, APP_PATH_BYTES = sizeof(STORE_PATH "/.bin") + PASSPORT_APP_NAME_BYTES };
+static const uint64_t MAX_PLAY_ID = UINT64_C(9007199254740991);
+enum { UPLOAD_CHUNK = 4096, APP_PATH_BYTES = sizeof(STORE_PATH "/.title") + PASSPORT_APP_NAME_BYTES };
 
 typedef struct {
     esp_image_header_t image;
@@ -69,9 +73,29 @@ static bool describe_app(const esp_app_desc_t *desc, passport_app_t *app)
     return true;
 }
 
-static void app_path(char *path, const char *name)
+bool passport_app_title_valid(const char *title)
 {
-    snprintf(path, APP_PATH_BYTES, STORE_PATH "/%s.bin", name);
+    size_t size = strnlen(title, PASSPORT_APP_TITLE_BYTES);
+    if (!size || size == PASSPORT_APP_TITLE_BYTES || passport_utf8_prefix(title, size) != size) return false;
+    for (size_t i = 0; i < size; ++i) {
+        unsigned char byte = title[i];
+        if (byte < 0x20 || byte == 0x7f ||
+            (byte == 0xc2 && (unsigned char)title[i + 1] <= 0x9f)) return false;
+    }
+    return true;
+}
+
+uint64_t passport_app_play_id(const char *text)
+{
+    size_t digits = strspn(text, "0123456789");
+    if (!digits || digits >= PASSPORT_PLAY_ID_BYTES || text[digits] || text[0] == '0') return 0;
+    uint64_t id = strtoull(text, NULL, 10);
+    return id <= MAX_PLAY_ID ? id : 0;
+}
+
+static void app_path(char *path, const char *name, const char *extension)
+{
+    snprintf(path, APP_PATH_BYTES, STORE_PATH "/%s.%s", name, extension);
 }
 
 static bool file_name(const char *file, char *name)
@@ -86,10 +110,30 @@ static bool file_name(const char *file, char *name)
     return true;
 }
 
+static void read_app_metadata(passport_app_t *app)
+{
+    char path[APP_PATH_BYTES];
+    app_path(path, app->name, "title");
+    int fd = open(path, O_RDONLY);
+    if (fd < 0) return;
+    char metadata[PASSPORT_APP_TITLE_BYTES + PASSPORT_PLAY_ID_BYTES];
+    ssize_t count = read(fd, metadata, sizeof(metadata));
+    close(fd);
+    if (count <= 0 || (size_t)count >= sizeof(metadata) || memchr(metadata, '\0', count)) return;
+    metadata[count] = '\0';
+    // Older installations store just the title on the first line.
+    char *id = strchr(metadata, '\n');
+    if (id) {
+        *id++ = '\0';
+        app->play_id = passport_app_play_id(id);
+    }
+    if (passport_app_title_valid(metadata)) strlcpy(app->title, metadata, sizeof(app->title));
+}
+
 static void describe_file(passport_app_t *app)
 {
     char path[APP_PATH_BYTES];
-    app_path(path, app->name);
+    app_path(path, app->name, "bin");
     int fd = open(path, O_RDONLY);
     if (fd < 0) return;
     struct stat info;
@@ -101,6 +145,8 @@ static void describe_file(passport_app_t *app)
         strlcpy(app->version, image.version, sizeof(app->version));
     }
     close(fd);
+
+    read_app_metadata(app);
 }
 
 static size_t scan_store(size_t offset, passport_app_t *apps, size_t limit)
@@ -154,6 +200,7 @@ esp_err_t passport_apps_init(void)
     esp_err_t err = esp_vfs_littlefs_register(&config);
     if (err != ESP_OK) return err;
     if (unlink(UPLOAD_PATH) != 0 && errno != ENOENT) return ESP_FAIL;
+    if (unlink(TITLE_UPLOAD_PATH) != 0 && errno != ENOENT) return ESP_FAIL;
     err = refresh_space();
     s_status.ready = err == ESP_OK;
     if (s_status.ready) s_status.count = scan_store(0, NULL, 0);
@@ -212,6 +259,45 @@ static esp_err_t write_file(int fd, const void *data, size_t size)
     ssize_t written = write(fd, data, size);
     if (written < 0) return file_error();
     return (size_t)written == size ? ESP_OK : PASSPORT_ERR_APP_SPACE;
+}
+
+static esp_err_t save_app_metadata(const char *name, const char *title, uint64_t play_id)
+{
+    char path[APP_PATH_BYTES];
+    app_path(path, name, "title");
+    if (!title) return unlink(path) == 0 || errno == ENOENT ? ESP_OK : file_error();
+    int fd = open(TITLE_UPLOAD_PATH, O_WRONLY | O_CREAT | O_TRUNC, 0600);
+    if (fd < 0) return file_error();
+    char metadata[PASSPORT_APP_TITLE_BYTES + PASSPORT_PLAY_ID_BYTES];
+    size_t size = play_id ? snprintf(metadata, sizeof(metadata), "%s\n%" PRIu64, title, play_id) :
+                           strlcpy(metadata, title, sizeof(metadata));
+    esp_err_t err = write_file(fd, metadata, size);
+    if (close(fd) != 0 && err == ESP_OK) err = file_error();
+    if (err == ESP_OK && rename(TITLE_UPLOAD_PATH, path) != 0) err = file_error();
+    if (err != ESP_OK) unlink(TITLE_UPLOAD_PATH);
+    return err;
+}
+
+static esp_err_t match_installed(const char *path, const app_header_t *header, size_t size,
+                                 passport_app_read_t receive, void *context)
+{
+    int fd = open(path, O_RDONLY);
+    if (fd < 0) return file_error();
+    enum { CHUNK = UPLOAD_CHUNK / 2 };
+    char *buffers = malloc(2 * CHUNK);
+    esp_err_t err = buffers ? ESP_OK : ESP_ERR_NO_MEM;
+    if (err == ESP_OK && (read(fd, buffers, sizeof(*header)) != sizeof(*header) ||
+                          memcmp(buffers, header, sizeof(*header)) != 0)) err = ESP_ERR_NOT_ALLOWED;
+    for (size_t remaining = size - sizeof(*header); err == ESP_OK && remaining;) {
+        size_t chunk = remaining < CHUNK ? remaining : CHUNK;
+        err = read_exact(receive, context, buffers, chunk);
+        if (err == ESP_OK && (read(fd, buffers + CHUNK, chunk) != (ssize_t)chunk ||
+                              memcmp(buffers, buffers + CHUNK, chunk) != 0)) err = ESP_ERR_NOT_ALLOWED;
+        remaining -= chunk;
+    }
+    free(buffers);
+    close(fd);
+    return err;
 }
 
 static esp_err_t save_upload(size_t size, const app_header_t *header, passport_app_read_t receive, void *context)
@@ -277,12 +363,12 @@ static esp_err_t stage_file(const char *path)
     return ESP_OK;
 }
 
-static esp_err_t receive_app(size_t size, passport_app_read_t receive, void *context, char *name)
+static esp_err_t receive_app(size_t size, passport_app_read_t receive, void *context,
+                             const char *title, char *name, bool *existing_app)
 {
     app_header_t header;
     if (size < sizeof(header) + 32) return ESP_ERR_INVALID_SIZE;
     if (size > s_status.max_app_bytes) return PASSPORT_ERR_APP_TOO_LARGE;
-    if (size > s_status.free_bytes) return PASSPORT_ERR_APP_SPACE;
     esp_err_t err = read_exact(receive, context, &header, sizeof(header));
     if (err != ESP_OK) return err;
     passport_app_t app = {0};
@@ -293,29 +379,54 @@ static esp_err_t receive_app(size_t size, passport_app_read_t receive, void *con
         return ESP_ERR_OTA_VALIDATE_FAILED;
     }
     char path[APP_PATH_BYTES];
-    app_path(path, app.name);
+    app_path(path, app.name, "bin");
     struct stat existing;
-    if (stat(path, &existing) == 0) return ESP_ERR_NOT_ALLOWED;
+    if (stat(path, &existing) == 0) {
+        if (!title || existing.st_size != (off_t)size) return ESP_ERR_NOT_ALLOWED;
+        err = match_installed(path, &header, size, receive, context);
+        if (err == ESP_OK) {
+            strlcpy(name, app.name, PASSPORT_APP_NAME_BYTES);
+            *existing_app = true;
+        }
+        return err;
+    }
     if (errno != ENOENT) return ESP_FAIL;
+    if (size > s_status.free_bytes) return PASSPORT_ERR_APP_SPACE;
     strlcpy(name, app.name, PASSPORT_APP_NAME_BYTES);
     err = save_upload(size, &header, receive, context);
     return err == ESP_OK ? stage_file(UPLOAD_PATH) : err;
 }
 
-esp_err_t passport_apps_install(size_t size, passport_app_read_t receive, void *context)
+esp_err_t passport_apps_install(size_t size, passport_app_read_t receive, void *context,
+                               const char *title, uint64_t play_id)
 {
+    if ((title && !passport_app_title_valid(title)) || (play_id && (!title || play_id > MAX_PLAY_ID))) {
+        return ESP_ERR_INVALID_ARG;
+    }
     esp_err_t err = reserve();
     if (err != ESP_OK) return err;
     char name[PASSPORT_APP_NAME_BYTES] = {0};
-    err = receive_app(size, receive, context, name);
+    bool existing_app = false;
+    err = receive_app(size, receive, context, title, name, &existing_app);
 
     xSemaphoreTake(s_lock, portMAX_DELAY);
-    if (err == ESP_OK) {
+    if (err == ESP_OK && existing_app && !play_id) {
+        passport_app_t installed = {0};
+        strlcpy(installed.name, name, sizeof(installed.name));
+        read_app_metadata(&installed);
+        play_id = installed.play_id;
+    }
+    if (err == ESP_OK) err = save_app_metadata(name, title, play_id);
+    if (err == ESP_OK && existing_app) {
+        ++s_status.generation;
+    } else if (err == ESP_OK) {
         // Publish the verified app with a single filesystem commit.
         char path[APP_PATH_BYTES];
-        app_path(path, name);
-        if (rename(UPLOAD_PATH, path) != 0) err = file_error();
-        else {
+        app_path(path, name, "bin");
+        if (rename(UPLOAD_PATH, path) != 0) {
+            err = file_error();
+            save_app_metadata(name, NULL, 0);
+        } else {
             strlcpy(s_staged, name, sizeof(s_staged));
             ++s_status.count;
             ++s_status.generation;
@@ -323,7 +434,7 @@ esp_err_t passport_apps_install(size_t size, passport_app_read_t receive, void *
         }
     }
     if (name[0]) {
-        if (err != ESP_OK && unlink(UPLOAD_PATH) != 0 && errno != ENOENT) {
+        if (!existing_app && err != ESP_OK && unlink(UPLOAD_PATH) != 0 && errno != ENOENT) {
             ESP_LOGW(TAG, "Could not discard interrupted upload: %d", errno);
         }
         refresh_space();
@@ -339,11 +450,12 @@ esp_err_t passport_apps_remove(const char *name, const size_t *generation)
     esp_err_t err = reserve();
     if (err != ESP_OK) return err;
     char path[APP_PATH_BYTES];
-    app_path(path, name);
+    app_path(path, name, "bin");
     xSemaphoreTake(s_lock, portMAX_DELAY);
     if (generation && *generation != s_status.generation) err = ESP_ERR_NOT_FOUND;
     else if (unlink(path) != 0) err = errno == ENOENT ? ESP_ERR_NOT_FOUND : file_error();
     else {
+        if (save_app_metadata(name, NULL, 0) != ESP_OK) ESP_LOGW(TAG, "Could not remove metadata for %s", name);
         if (strcmp(s_staged, name) == 0) s_staged[0] = '\0';
         --s_status.count;
         ++s_status.generation;
@@ -362,7 +474,7 @@ esp_err_t passport_apps_launch(const char *name)
     if (err != ESP_OK) return err;
     if (strcmp(s_staged, name) != 0) {
         char path[APP_PATH_BYTES];
-        app_path(path, name);
+        app_path(path, name, "bin");
         ESP_LOGI(TAG, "Preparing %s", name);
         err = stage_file(path);
         if (err == ESP_OK) strlcpy(s_staged, name, sizeof(s_staged));

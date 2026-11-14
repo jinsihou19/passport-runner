@@ -1,7 +1,9 @@
 #include "passport_web.h"
 #include "passport_web_internal.h"
 
+#include <inttypes.h>
 #include <stdatomic.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/socket.h>
@@ -15,6 +17,7 @@
 #include "esp_timer.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
+#include "mbedtls/base64.h"
 #include "passport_apps.h"
 #include "passport_network.h"
 #include "passport_weather.h"
@@ -79,7 +82,11 @@ static bool add_app_state(cJSON *json, size_t offset)
             cJSON_Delete(entry);
             return false;
         }
+        char play_id[PASSPORT_PLAY_ID_BYTES];
+        snprintf(play_id, sizeof(play_id), "%" PRIu64, page[i].play_id);
         if (!cJSON_AddStringToObject(entry, "name", page[i].name) ||
+            !cJSON_AddStringToObject(entry, "title", page[i].title) ||
+            (page[i].play_id && !cJSON_AddStringToObject(entry, "play_id", play_id)) ||
             !cJSON_AddStringToObject(entry, "version", page[i].version) ||
             !cJSON_AddNumberToObject(entry, "size", page[i].size) ||
             !cJSON_AddBoolToObject(entry, "built_in", false)) return false;
@@ -300,6 +307,31 @@ static esp_err_t discard_upload(upload_t *upload)
     return ESP_OK;
 }
 
+static bool read_app_title(httpd_req_t *req, char title[PASSPORT_APP_TITLE_BYTES])
+{
+    const char *header = "X-Passport-App-Title";
+    size_t encoded_size = httpd_req_get_hdr_value_len(req, header);
+    if (!encoded_size) return true;
+    char encoded[((PASSPORT_APP_TITLE_BYTES - 1 + 2) / 3) * 4 + 1];
+    size_t size;
+    if (httpd_req_get_hdr_value_str(req, header, encoded, sizeof(encoded)) != ESP_OK ||
+        mbedtls_base64_decode((unsigned char *)title, PASSPORT_APP_TITLE_BYTES - 1, &size,
+                              (const unsigned char *)encoded, encoded_size) != 0 ||
+        memchr(title, '\0', size)) return false;
+    title[size] = '\0';
+    return passport_app_title_valid(title);
+}
+
+static bool read_app_play_id(httpd_req_t *req, uint64_t *id)
+{
+    const char *header = "X-Passport-Play-Id";
+    if (!httpd_req_get_hdr_value_len(req, header)) return true;
+    char text[PASSPORT_PLAY_ID_BYTES];
+    if (httpd_req_get_hdr_value_str(req, header, text, sizeof(text)) != ESP_OK) return false;
+    *id = passport_app_play_id(text);
+    return *id != 0;
+}
+
 static esp_err_t install_app(httpd_req_t *req)
 {
     upload_t upload = {.request = req, .deadline = esp_timer_get_time() + 120000000, .remaining = req->content_len};
@@ -307,12 +339,15 @@ static esp_err_t install_app(httpd_req_t *req)
     passport_network_status_t network;
     passport_network_status(&network);
     char type[32];
+    char title[PASSPORT_APP_TITLE_BYTES] = "";
+    uint64_t play_id = 0;
     esp_err_t err = ESP_ERR_INVALID_ARG;
     if (network.changing || network.state == PASSPORT_NET_CONNECTING) {
         err = ESP_ERR_INVALID_STATE;
     } else if (httpd_req_get_hdr_value_str(req, "Content-Type", type, sizeof(type)) == ESP_OK &&
-               strcmp(type, "application/octet-stream") == 0) {
-        err = passport_apps_install(req->content_len, read_upload, &upload);
+               strcmp(type, "application/octet-stream") == 0 && read_app_title(req, title) &&
+               read_app_play_id(req, &play_id)) {
+        err = passport_apps_install(req->content_len, read_upload, &upload, title[0] ? title : NULL, play_id);
     }
     esp_err_t result = passport_web_action_result(req, err);
     if (result != ESP_OK || err == ESP_ERR_TIMEOUT) return ESP_FAIL;

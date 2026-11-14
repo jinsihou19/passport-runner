@@ -1,3 +1,4 @@
+#include <inttypes.h>
 #include <stdio.h>
 #include <string.h>
 
@@ -9,6 +10,7 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/queue.h"
 #include "lvgl.h"
+#include "src/misc/lv_text_private.h"
 #include "nvs_flash.h"
 #include "passport_apps.h"
 #include "passport_launcher.h"
@@ -263,10 +265,11 @@ static void init_management(lv_obj_t *page, const lv_font_t *font)
 {
     s_manage_title = label(page, 0, 0, PAGE_WIDTH, THEME_TEXT, font, "");
     s_manage_name = label(page, 0, 30, PAGE_WIDTH, WHITE, font, "");
-    lv_label_set_long_mode(s_manage_name, LV_LABEL_LONG_MODE_WRAP);
-    s_manage_info = label(page, 0, 80, PAGE_WIDTH, MUTED, font, "");
+    lv_obj_set_height(s_manage_name, 44);
+    lv_label_set_long_mode(s_manage_name, LV_LABEL_LONG_MODE_DOTS);
+    s_manage_info = label(page, 0, 75, PAGE_WIDTH, MUTED, font, "");
     for (size_t i = 0; i < 2; ++i) {
-        s_manage_rows[i] = tile(page, 0, 130 + (int)i * 44, PAGE_WIDTH, 38, TILE);
+        s_manage_rows[i] = tile(page, 0, 145 + (int)i * 39, PAGE_WIDTH, 36, TILE);
         s_manage_labels[i] = label(s_manage_rows[i], 12, 8, 184, WHITE, font, "");
     }
 }
@@ -307,8 +310,19 @@ static bool init_display(uint8_t brightness)
     return true;
 }
 
+static bool title_has_glyphs(const char *title)
+{
+    lv_font_glyph_dsc_t glyph;
+    for (uint32_t index = 0; title[index];) {
+        uint32_t codepoint = lv_text_encoded_next(title, &index);
+        if (!lv_font_get_glyph_dsc(&passport_cjk_16, &glyph, codepoint, 0) || glyph.is_placeholder) return false;
+    }
+    return true;
+}
+
 static const char *app_label(const passport_app_t *app)
 {
+    if (app->title[0] && title_has_glyphs(app->title)) return app->title;
     const char *name = app->name + sizeof("Passport-") - 1;
     return strcmp(name, "Pomodoro") == 0 ? "番茄钟" : name;
 }
@@ -426,9 +440,14 @@ static void draw_management(const manager_t *manager)
     const managed_app_t *managed = &manager->managed;
     bool confirm = managed->menu.page == PASSPORT_MANAGE_CONFIRM;
     char info[64];
-    if (confirm) strlcpy(info, "删除后可从网页重新安装", sizeof(info));
-    else snprintf(info, sizeof(info), "大小 %zu KiB\n剩余 %zu KiB",
-                  managed->app.size / 1024, manager->apps.free_bytes / 1024);
+    if (confirm) {
+        strlcpy(info, "删除后可从网页重新安装", sizeof(info));
+    } else if (managed->app.play_id) {
+        snprintf(info, sizeof(info), "社区 ID %" PRIu64 "\n大小 %zu KiB",
+                 managed->app.play_id, managed->app.size / 1024);
+    } else {
+        snprintf(info, sizeof(info), "大小 %zu KiB", managed->app.size / 1024);
+    }
     update_text(s_manage_title, confirm ? "确认删除" : "管理应用");
     update_text(s_manage_name, app_label(&managed->app));
     update_text(s_manage_info, info);

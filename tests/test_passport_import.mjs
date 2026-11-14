@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import {createHash} from 'node:crypto';
 import {test} from 'node:test';
-import {inspectCommunity, inspectOfficial, makeUpload, maxBundleBytes, officialFirmware,
+import {appTitleHeader, inspectCommunity, inspectOfficial, makeUpload, maxBundleBytes, officialFirmware,
   officialPlayKey, suggestedName} from '../main/runner/assets/passport_import.mjs';
 
 const appOffset = 0x10000;
@@ -10,6 +10,9 @@ const limits = {max_app_bytes: 0x250000};
 const factory = [0, 0, appOffset, 0x200000, 'factory'];
 const nvs = [1, 2, 0x9000, 0x6000, 'nvs'];
 const phy = [1, 1, 0xf000, 0x1000, 'phy_init'];
+const cardId = [1, 2, 0x356000, 0x4000, 'cardid'];
+const recovery = [0, 0x20, 0x700000, 0x100000, 'recovery'];
+const legacy = [nvs, phy, factory, cardId, recovery];
 const hash = (algorithm, data) => createHash(algorithm).update(data).digest();
 
 function app(name = 'community-game') {
@@ -38,13 +41,14 @@ function bundle(image = app(), entries = [nvs, phy, factory]) {
   const raw = Buffer.alloc(appOffset + image.length, 0xff);
   raw[0] = 0xe9;
   let index = tableOffset;
-  for (const [type, subtype, start, size, label] of entries) {
+  for (const [type, subtype, start, size, label, flags = 0] of entries) {
     raw.fill(0, index, index + 32);
     raw.writeUInt16LE(0x50aa, index);
     raw.set([type, subtype], index + 2);
     raw.writeUInt32LE(start, index + 4);
     raw.writeUInt32LE(size, index + 8);
     raw.write(label, index + 12, 16, 'ascii');
+    raw.writeUInt32LE(flags, index + 28);
     index += 32;
   }
   raw.writeUInt16LE(0xebeb, index);
@@ -99,6 +103,35 @@ test('rejects extra applications, resource partitions, data to discard and overs
     /app_too_large/);
 });
 
+test('extracts only the factory image with legacy recovery and cardid reservations', async () => {
+  const image = app();
+  const raw = bundle(image, legacy);
+  const padded = Buffer.alloc(maxBundleBytes, 0xff);
+  raw.copy(padded);
+  for (const input of [raw, padded, bundle(image, [nvs, phy, factory, cardId])]) {
+    assert.deepEqual(Buffer.from((await inspect(input)).image), image);
+  }
+
+  app('recovery').copy(padded, recovery[2]);
+  await assert.rejects(inspect(padded), /bundle_extra/);
+  padded.fill(0xff, recovery[2]);
+  padded[cardId[2]] = 0;
+  await assert.rejects(inspect(padded), /bundle_extra/);
+});
+
+test('requires the known layout for legacy partition reservations', async () => {
+  for (const changed of [
+    [0, 0x20, 0x600000, 0x100000, 'recovery'],
+    [0, 0x20, 0x700000, 0x80000, 'recovery'],
+    [0, 0x10, 0x700000, 0x100000, 'recovery'],
+    [...recovery, 1],
+  ]) {
+    await assert.rejects(inspect(bundle(app(), [nvs, phy, factory, changed])), /bundle_app_count/);
+  }
+  await assert.rejects(inspect(bundle(app(), [nvs, phy, factory, [1, 2, 0x360000, 0x4000, 'cardid']])),
+    /bundle_extra/);
+});
+
 test('accepts official play page URLs only', () => {
   const base = 'https://ai-passport.folotoy.cn';
   assert.equal(officialPlayKey(`  ${base}/plays/1471/?from=share#install `), '1471');
@@ -111,16 +144,28 @@ test('accepts official play page URLs only', () => {
   }
 });
 
+test('encodes the official display title as bounded UTF-8 without splitting characters', () => {
+  const decode = title => Buffer.from(appTitleHeader(title), 'base64').toString('utf8');
+  const title = '黄金矿工：地底逃亡';
+  assert.equal(decode(` ${title}\r\n续作 `), `${title} 续作`);
+  assert.equal(decode('A' + '矿'.repeat(40)), 'A' + '矿'.repeat(31));
+  assert.equal(appTitleHeader('\0\n'), '');
+});
+
 test('validates the official download before extracting an app', async () => {
   const image = app();
-  const raw = bundle(image);
+  const raw = bundle(image, legacy);
   const doc = {play: {id: 1471, slug: 'neon-rain', title: {zh: '霓虹雨'}, firmware: {
     available: true, url: '/api/download/community/neon-rain', format: 'esp-merged-0x0',
     size: raw.length, sha256: hash('sha256', raw).toString('hex'),
   }}};
   const release = officialFirmware(doc, '1471');
-  assert.deepEqual(release, {slug: 'neon-rain', title: '霓虹雨', size: raw.length,
+  assert.deepEqual(release, {id: 1471, slug: 'neon-rain', title: '霓虹雨', size: raw.length,
     sha256: doc.play.firmware.sha256});
+  assert.deepEqual(officialFirmware(doc, 'neon-rain'), release);
+  for (const id of [undefined, 0, -1, '1471', 1.5, Number.MAX_SAFE_INTEGER + 1]) {
+    assert.throws(() => officialFirmware({play: {...doc.play, id}}, 'neon-rain'), /community_metadata/);
+  }
   const response = new Response(new ReadableStream({start(stream) {
     stream.enqueue(raw.subarray(0, 2048));
     stream.enqueue(raw.subarray(2048));

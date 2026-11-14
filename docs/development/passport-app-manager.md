@@ -58,7 +58,8 @@ and saved timer state. Each boot generates a new eight-character code.
 ## Manage an app on the Passport
 
 Use UP or DOWN to highlight an installed app. A short press of OK opens it.
-Hold OK to view its size and the available space. Select **Delete app**, then
+Hold OK to view the app size. If the app has a community play ID, it appears
+above the size. Select **Delete app**, then
 move from the preselected **Cancel** to **Delete** and press OK. The Passport
 returns to its app list after deletion. Refresh the web page to see the updated
 app list and available space. You can upload the original app file again later.
@@ -93,11 +94,21 @@ official download to the browser, which verifies it against the published
 SHA-256, extracts the app, and installs it if all checks pass. Only the
 extracted app takes up space in the library. Open it from the device's app list.
 
+The official play title appears in the web and device app lists. The device
+uses the app identifier when its screen font lacks a character in the title.
+Long-press OK on an app to see its community play ID. In the web list, click
+the ID to open the official play page. To add this metadata to an older
+installation, paste the same play link again. Runner updates the metadata when
+the downloaded app matches the installed image byte for byte. A local `.bin`
+has no official play metadata.
+
 The web importer accepts raw bundles up to 8 MiB with one unsigned
 ESP32-C3 factory app, a valid partition table and an ESP-IDF SHA-256 trailer.
-It rejects extra partitions and data outside the app. The extracted image
-must fit the 2,368 KiB shared boot partition and the free space shown on the
-device. Successful installation verifies the image format. The original
+It recognizes the legacy FoloToy `recovery` and `cardid` reservations when
+their declared layouts match and the bundle carries no data for either slot.
+The importer rejects other extra partitions and data outside the app. The
+extracted image must fit the 2,368 KiB shared boot partition and the free space
+shown on the device. Successful installation verifies the image format. The original
 app controls remain in effect, so an app without a return gesture can return
 to the manager by restarting the device.
 

@@ -266,8 +266,9 @@
     return headers;
   }
 
-  async function api(path, method = 'GET', body) {
+  async function api(path, method = 'GET', body, extraHeaders) {
     const headers = apiHeaders();
+    Object.assign(headers, extraHeaders);
     if (body instanceof File) headers['Content-Type'] = 'application/octet-stream';
     else if (body !== undefined) {
       headers['Content-Type'] = 'application/json';
@@ -329,8 +330,16 @@
         const label = document.createElement('div');
         const name = document.createElement('strong');
         const detail = document.createElement('small');
-        name.textContent = app.name === 'Passport-Pomodoro' ? '番茄钟' : app.name.slice(9);
+        name.textContent = app.title || (app.name === 'Passport-Pomodoro' ? '番茄钟' : app.name.slice(9));
         detail.textContent = [formatBytes(app.size), app.version].filter(Boolean).join(' · ');
+        if (typeof app.play_id === 'string' && /^[1-9]\d{0,15}$/.test(app.play_id)) {
+          const source = document.createElement('a');
+          source.href = `https://ai-passport.folotoy.cn/plays/${app.play_id}/`;
+          source.target = '_blank';
+          source.rel = 'noopener noreferrer';
+          source.textContent = `社区玩法 #${app.play_id}`;
+          detail.append(' · ', source);
+        }
         label.append(name, detail);
         row.append(label);
         const remove = document.createElement('button');
@@ -426,13 +435,13 @@
     await api('session', 'DELETE');
     disconnect('');
   });
-  async function install(file, note = message => { $('notice').textContent = message; }) {
+  async function install(file, note = message => { $('notice').textContent = message; }, metadataHeaders) {
     render(await api('state?offset=' + state.apps_offset));
     if (!state.manager_ready) throw new Error('unavailable');
     if (file.size > state.max_app_bytes) throw new Error('app_too_large');
-    if (file.size > state.free_bytes) throw new Error('space');
+    if (!metadataHeaders && file.size > state.free_bytes) throw new Error('space');
     note('正在上传并校验应用…');
-    await api('apps', 'POST', file);
+    await api('apps', 'POST', file, metadataHeaders);
     note('安装完成。请在 Passport 上选择应用，按确定键打开。');
   }
 
@@ -547,9 +556,14 @@
         const info = await community.inspectOfficial(response, firmware, state);
         const name = community.suggestedName(info.name, firmware.slug + '.bin', info.image);
         const image = community.makeUpload(info.image, name);
-        await install(new File([image], 'Passport-' + name + '.bin', {type: 'application/octet-stream'}), communityNote);
+        await install(new File([image], 'Passport-' + name + '.bin', {type: 'application/octet-stream'}),
+                      communityNote, {
+                        'X-Passport-App-Title': community.appTitleHeader(firmware.title) ||
+                          community.appTitleHeader(firmware.slug),
+                        'X-Passport-Play-Id': String(firmware.id)
+                      });
         $('community-form').reset();
-        communityNote(`《${firmware.title}》已安装，在 Passport 上显示为 ${name}。`);
+        communityNote(`《${firmware.title}》已安装。`);
       } catch (error) {
         if (error.message === 'code') throw error;
         communityNote(errors[error.message] || errors.community_fetch, true);

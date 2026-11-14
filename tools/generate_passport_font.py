@@ -12,10 +12,13 @@ UI = [
 ]
 OUTPUT = ROOT / "assets/fonts/passport_cjk_16.c"
 ASCII = range(0x20, 0x7F)
+# Additional glyphs needed by the Gold Miner community title.
+COMMUNITY_TITLES = "黄金矿工：地底逃亡"
 
 
 def characters():
-    return sorted({ord(char) for path in UI for char in path.read_text(encoding="utf-8") if ord(char) > 0x7F})
+    texts = [path.read_text(encoding="utf-8") for path in UI]
+    return sorted({ord(char) for text in [*texts, COMMUNITY_TITLES] for char in text if ord(char) > 0x7F})
 
 
 def check(source, expected_pixels=None):

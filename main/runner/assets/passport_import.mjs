@@ -100,7 +100,10 @@ export async function inspectCommunity(file, limits) {
 
 function inspectBundle(bytes, limits) {
   if (bytes[0] !== 0xe9) throw new Error('bundle_format');
-  const partitions = partitionTable(bytes);
+  // The legacy FoloToy layout reserves this slot for device-resident recovery.
+  const partitions = partitionTable(bytes).filter(part =>
+    !(part.label === 'recovery' && part.type === 0 && part.subtype === 0x20 &&
+      part.start === 0x700000 && part.end === maxBundleBytes && !part.flags));
   const applications = partitions.filter(part => part.type === 0);
   if (applications.length !== 1) throw new Error('bundle_app_count');
   const [app] = applications;
@@ -109,9 +112,11 @@ function inspectBundle(bytes, limits) {
     if (part === app) continue;
     const standard = part.type === 1 &&
       ((part.subtype === 2 && part.label === 'nvs') || (part.subtype === 1 && part.label === 'phy_init'));
-    if (!standard || part.flags) throw new Error('bundle_extra');
+    const cardId = part.label === 'cardid' && part.type === 1 && part.subtype === 2 &&
+      part.start === 0x356000 && part.end === 0x35a000;
+    if ((!standard && !cardId) || part.flags) throw new Error('bundle_extra');
   }
-  // Discard only erased space outside the app, including NVS and undeclared gaps.
+  // Reserved partitions and undeclared gaps may contain only erased bytes.
   if (!blank(bytes.subarray(tableEnd, app.start)) || !blank(bytes.subarray(app.end))) {
     throw new Error('bundle_extra');
   }
@@ -132,7 +137,8 @@ export function officialPlayKey(input) {
 export function officialFirmware(metadata, key) {
   const play = metadata?.play;
   const firmware = play?.firmware;
-  if (!play || (/^[1-9]\d*$/.test(key) ? String(play.id) !== key : play.slug !== key)) {
+  if (!play || !Number.isSafeInteger(play.id) || play.id <= 0 ||
+      (/^[1-9]\d*$/.test(key) ? String(play.id) !== key : play.slug !== key)) {
     throw new Error('community_metadata');
   }
   if (!firmware?.available) throw new Error('community_missing');
@@ -145,7 +151,8 @@ export function officialFirmware(metadata, key) {
   }
   if (firmware.size > maxBundleBytes) throw new Error('bundle_size');
   const title = [play.title?.zh, play.title?.en].find(value => typeof value === 'string' && value.trim());
-  return {slug: play.slug, title: title?.trim() || play.slug, size: firmware.size, sha256: firmware.sha256.toLowerCase()};
+  return {id: play.id, slug: play.slug, title: title?.trim() || play.slug,
+    size: firmware.size, sha256: firmware.sha256.toLowerCase()};
 }
 
 export async function inspectOfficial(response, firmware, limits) {
@@ -175,6 +182,13 @@ export async function inspectOfficial(response, firmware, limits) {
 
 function hex(bytes) {
   return Array.from(bytes, byte => byte.toString(16).padStart(2, '0')).join('');
+}
+
+export function appTitleHeader(title) {
+  const text = title.replace(/[\p{Cc}\u2028\u2029]+/gu, ' ').trim();
+  const bytes = new Uint8Array(96);
+  const {written} = new TextEncoder().encodeInto(text, bytes);
+  return btoa(String.fromCharCode(...bytes.subarray(0, written)));
 }
 
 export function suggestedName(name, filename, image) {

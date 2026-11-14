@@ -15,7 +15,7 @@
 - 添加字库前评估 Flash 与内部 RAM 影响；ESP32-C3 无 PSRAM。
 - 不提交许可不允许分发的字库。
 
-应用管理器、ESP-Claw 和番茄钟屏幕使用 [passport_cjk_16.c](fonts/passport_cjk_16.c)，从 [Sans2.004](https://github.com/notofonts/noto-cjk/blob/523d033d6cb47f4a80c58a35753646f5c3608a78/Sans/OTF/SimplifiedChinese/NotoSansCJKsc-Regular.otf) 的 Noto Sans CJK SC Regular 生成 16 px、4 bpp 子集，按 [SIL 开源字体许可证](fonts/passport_cjk_16.OFL.txt) 分发。字库覆盖可打印 ASCII 和 LCD 界面用到的中文字。LVGL 直接从 Flash 读取 24,057 字节的点阵数据。
+应用管理器、ESP-Claw 和番茄钟屏幕使用 [passport_cjk_16.c](fonts/passport_cjk_16.c)，从 [Sans2.004](https://github.com/notofonts/noto-cjk/blob/523d033d6cb47f4a80c58a35753646f5c3608a78/Sans/OTF/SimplifiedChinese/NotoSansCJKsc-Regular.otf) 的 Noto Sans CJK SC Regular 生成 16 px、4 bpp 子集，按 [SIL 开源字体许可证](fonts/passport_cjk_16.OFL.txt) 分发。字库覆盖可打印 ASCII、LCD 界面用到的中文字，以及《黄金矿工：地底逃亡》的标题。LVGL 直接从 Flash 读取 25,273 字节的点阵数据。
 
 使用 Pillow 12.1.1 和 fonttools 4.60.2，运行 `python3 tools/generate_passport_font.py --font /path/to/NotoSansCJKsc-Regular.otf` 重新生成。脚本检查源字体的字符映射，并逐像素校验打包后的字形。静态验证会将生成的子集与界面源码比对。
 

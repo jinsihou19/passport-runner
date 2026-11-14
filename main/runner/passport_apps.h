@@ -2,19 +2,24 @@
 
 #include <stdbool.h>
 #include <stddef.h>
+#include <stdint.h>
 
 #include "esp_err.h"
 
 enum {
     PASSPORT_APP_NAME_BYTES = 32,
+    PASSPORT_APP_TITLE_BYTES = 97,
+    PASSPORT_PLAY_ID_BYTES = 17,
     PASSPORT_ERR_APP_SPACE = 0x7601,
     PASSPORT_ERR_APP_TOO_LARGE = 0x7602,
 };
 
 typedef struct {
     char name[PASSPORT_APP_NAME_BYTES];
+    char title[PASSPORT_APP_TITLE_BYTES];
     char version[32];
     size_t size;
+    uint64_t play_id;
 } passport_app_t;
 
 typedef struct {
@@ -32,7 +37,10 @@ typedef int (*passport_app_read_t)(void *context, char *buffer, size_t size);
 esp_err_t passport_apps_init(void);
 void passport_apps_status(passport_apps_status_t *status);
 size_t passport_apps_page(size_t offset, passport_app_t *apps, size_t limit, passport_apps_status_t *status);
-esp_err_t passport_apps_install(size_t size, passport_app_read_t read, void *context);
+bool passport_app_title_valid(const char *title);
+uint64_t passport_app_play_id(const char *text);
+esp_err_t passport_apps_install(size_t size, passport_app_read_t read, void *context,
+                               const char *title, uint64_t play_id);
 // Pass the generation the user confirmed, or NULL to remove by name regardless of generation.
 esp_err_t passport_apps_remove(const char *name, const size_t *generation);
 esp_err_t passport_apps_launch(const char *name);

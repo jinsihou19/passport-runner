@@ -17,7 +17,7 @@ Store reusable font files and generated font sources in `fonts/`.
 - Check Flash and internal-RAM impact before adding a font; the ESP32-C3 has no PSRAM.
 - Do not commit fonts whose license does not permit redistribution.
 
-The app manager, ESP-Claw, and Pomodoro screens use [passport_cjk_16.c](fonts/passport_cjk_16.c), a 16 px, 4 bpp subset of Noto Sans CJK SC Regular from [Sans2.004](https://github.com/notofonts/noto-cjk/blob/523d033d6cb47f4a80c58a35753646f5c3608a78/Sans/OTF/SimplifiedChinese/NotoSansCJKsc-Regular.otf) under the [SIL Open Font License](fonts/passport_cjk_16.OFL.txt). It covers printable ASCII and the Chinese characters in the LCD UI. LVGL reads the 24,057 bytes of bitmap data from Flash.
+The app manager, ESP-Claw, and Pomodoro screens use [passport_cjk_16.c](fonts/passport_cjk_16.c), a 16 px, 4 bpp subset of Noto Sans CJK SC Regular from [Sans2.004](https://github.com/notofonts/noto-cjk/blob/523d033d6cb47f4a80c58a35753646f5c3608a78/Sans/OTF/SimplifiedChinese/NotoSansCJKsc-Regular.otf) under the [SIL Open Font License](fonts/passport_cjk_16.OFL.txt). It covers printable ASCII, the Chinese characters in the LCD UI, and the Gold Miner community title. LVGL reads the 25,273 bytes of bitmap data from Flash.
 
 Regenerate with Pillow 12.1.1 and fonttools 4.60.2 using `python3 tools/generate_passport_font.py --font /path/to/NotoSansCJKsc-Regular.otf`. The generator checks the source cmap and verifies the packed glyphs pixel by pixel. The static gate checks the generated subset against the UI source.
 
