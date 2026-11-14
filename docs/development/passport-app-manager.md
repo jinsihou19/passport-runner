@@ -55,6 +55,20 @@ next reset, including a power cycle after an app stops responding, boots the
 manager. Switching apps uses the same NVS partition for Wi-Fi, ESP-Claw settings,
 and saved timer state. Each boot generates a new eight-character code.
 
+## Configure Wi-Fi
+
+In the web console, open **Wi-Fi settings** and select **Scan for nearby Wi-Fi**.
+Choose a 2.4 GHz network from the list or enter its name manually for a hidden
+network. Enter the password and select **Connect Wi-Fi**. An open network can
+use a blank password. After the switch, open the address on the device screen.
+
+Runner saves up to two networks. A network becomes preferred once it obtains an
+IP address and its credentials are saved. Saving a third network replaces the
+older entry. After a restart or a disconnect, the device tries the other saved
+network if the first attempt times out. If neither works, it opens the setup
+hotspot. Failed setup attempts preserve the saved credentials. **Clear saved
+networks** removes both entries.
+
 ## Manage an app on the Passport
 
 Use UP or DOWN to highlight an installed app. A short press of OK opens it.

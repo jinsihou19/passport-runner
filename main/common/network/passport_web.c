@@ -231,7 +231,8 @@ static esp_err_t state(httpd_req_t *req)
     bool ok = json && cJSON_AddStringToObject(json, "network", states[network.state]) &&
         cJSON_AddStringToObject(json, "ip", network.ip) &&
         cJSON_AddStringToObject(json, "wifi_error", network.error) &&
-        cJSON_AddBoolToObject(json, "wifi_saved", network.saved) &&
+        cJSON_AddBoolToObject(json, "wifi_saved", network.saved_count > 0) &&
+        cJSON_AddNumberToObject(json, "wifi_saved_count", network.saved_count) &&
         cJSON_AddBoolToObject(json, "changing", network.changing) &&
         passport_web_add_state(req, json);
     char *body = ok ? cJSON_PrintUnformatted(json) : NULL;
@@ -257,6 +258,41 @@ static esp_err_t wifi(httpd_req_t *req)
     return passport_web_action_result(req, valid ? passport_network_try(&next) : ESP_ERR_INVALID_ARG);
 }
 
+static esp_err_t wifi_scan(httpd_req_t *req)
+{
+    if (!passport_web_authorized(req)) return ESP_OK;
+    if (req->method == HTTP_POST) {
+        if (passport_web_wifi_busy()) return passport_web_action_result(req, ESP_ERR_INVALID_STATE);
+        return passport_web_action_result(req, passport_network_scan());
+    }
+
+    static const char *const states[] = {"idle", "scanning", "done", "failed"};
+    passport_wifi_scan_t scan;
+    passport_network_scan_status(&scan);
+    cJSON *json = cJSON_CreateObject();
+    cJSON *networks = json && cJSON_AddStringToObject(json, "status", states[scan.state])
+        ? cJSON_AddArrayToObject(json, "networks") : NULL;
+    bool ok = networks != NULL;
+    for (size_t i = 0; ok && i < scan.count; ++i) {
+        const passport_wifi_access_point_t *point = &scan.points[i];
+        cJSON *item = cJSON_CreateObject();
+        if (!item || !cJSON_AddItemToArray(networks, item)) {
+            cJSON_Delete(item);
+            ok = false;
+            break;
+        }
+        ok = cJSON_AddStringToObject(item, "ssid", point->ssid) &&
+             cJSON_AddNumberToObject(item, "rssi", point->rssi) &&
+             cJSON_AddBoolToObject(item, "open", point->open);
+    }
+    char *body = ok ? cJSON_PrintUnformatted(json) : NULL;
+    cJSON_Delete(json);
+    if (!body) return passport_web_action_result(req, ESP_ERR_NO_MEM);
+    esp_err_t err = passport_web_send_json(req, "200 OK", body);
+    free(body);
+    return err;
+}
+
 esp_err_t passport_web_start_server(esp_err_t (*page_handler)(httpd_req_t *), const httpd_uri_t *extra_routes, size_t extra_count)
 {
     esp_err_t stored = passport_config_read(BROWSER_KEY, &s_browsers, sizeof(s_browsers));
@@ -268,7 +304,8 @@ esp_err_t passport_web_start_server(esp_err_t (*page_handler)(httpd_req_t *), co
         {.uri = "/api/session", .method = HTTP_DELETE, .handler = browser_session},
         {.uri = "/api/wifi", .method = HTTP_POST, .handler = wifi},
         {.uri = "/api/wifi", .method = HTTP_DELETE, .handler = wifi},
-
+        {.uri = "/api/wifi/scan", .method = HTTP_GET, .handler = wifi_scan},
+        {.uri = "/api/wifi/scan", .method = HTTP_POST, .handler = wifi_scan},
     };
     httpd_config_t config = HTTPD_DEFAULT_CONFIG();
     size_t common_count = sizeof(routes) / sizeof(routes[0]);

@@ -67,7 +67,7 @@
     .reply:empty, .prompt:empty, .note:empty { display: none; }
     form { display: grid; gap: 12px; }
     label { display: grid; gap: 5px; font-size: .9rem; font-weight: 650; }
-    input, textarea {
+    input, select, textarea {
       color: var(--ink); background: #fff; font: inherit; width: 100%; min-width: 0;
       border: 1px solid #b7c6bd; border-radius: 8px; padding: 10px 11px;
     }
@@ -87,6 +87,7 @@
     .settings .panel + .panel { margin-top: 12px; }
     .settings h2 + p { margin-top: 5px; }
     .settings form, .settings pre, .settings .actions { margin-top: 14px; }
+    #scan-wifi { justify-self: start; }
     .inline { display: flex; align-items: center; font-weight: 500; }
     .inline input { width: 16px; height: 16px; }
     pre { background: #edf4ee; padding: 12px; border-radius: 8px; white-space: pre-wrap; overflow-wrap: anywhere; }
@@ -165,8 +166,12 @@
           <section class="card panel" aria-labelledby="wifi-title">
             <h2 id="wifi-title">Wi-Fi 网络</h2>
             <p class="sub">连接 2.4 GHz 网络。切换时浏览器会断开，请按设备屏幕上的地址重新打开。</p>
+            <p id="wifi-saved" class="sub"></p>
             <form id="wifi-form">
-              <label>网络名称 <input id="ssid" maxlength="32" autocomplete="off" required></label>
+              <button id="scan-wifi" type="button">扫描附近的 Wi-Fi</button>
+              <p id="scan-status" class="sub" role="status" hidden></p>
+              <label id="wifi-results" hidden>附近的网络<select id="wifi-choice"></select></label>
+              <label>网络名称 <input id="ssid" maxlength="32" autocomplete="off" autocapitalize="off" spellcheck="false" required></label>
               <label>网络密码 <input id="wifi-password" type="password" maxlength="64" autocomplete="off" placeholder="开放网络可留空"></label>
               <div class="actions">
                 <button class="primary">连接网络</button>
@@ -288,12 +293,16 @@
       byId("reset-chat").disabled = busy || !next.prompt;
       byId("run-rule").disabled = busy || !next.script;
       byId("clear-rule").disabled = busy || !next.script;
-      byId("clear-wifi").disabled = busy || !next.wifi_saved;
-      byId("wifi-form").querySelector(".primary").disabled = busy || next.network === "connecting";
+      const wifiBusy = busy || !["setup", "online"].includes(next.network);
+      text("wifi-saved", `已保存 ${next.wifi_saved_count ?? Number(next.wifi_saved)} / 2 组网络`);
+      byId("clear-wifi").disabled = wifiBusy || !next.wifi_saved;
+      byId("scan-wifi").disabled = byId("wifi-choice").disabled = wifiBusy;
+      byId("wifi-form").querySelector(".primary").disabled = wifiBusy;
       byId("model-form").querySelector(".primary").disabled = busy;
       byId("disconnect").disabled = working;
       if (next.wifi_error === "wifi_timeout") text("notice", "连接超时，设备已返回配网模式。请检查 Wi-Fi 名称和密码。");
       if (next.wifi_error === "wifi_save") text("notice", "网络已连接，但保存失败。重启后可能需要重新配网。");
+      if (next.wifi_error === "wifi_fallback") text("notice", "新网络连接失败，设备已连接到已保存的网络。");
     }
 
     function disconnect(message) {
@@ -302,6 +311,9 @@
       code = "";
       state = undefined;
       networkSwitch = false;
+      byId("wifi-form").reset();
+      show("wifi-results", false);
+      show("scan-status", false);
       show("console", false);
       show("unlock", true);
       text("connection", "等待连接");
@@ -405,17 +417,49 @@
       });
     });
     byId("reset-chat").onclick = () => action(() => api("chat", "DELETE"));
+    byId("scan-wifi").onclick = () => action(async () => {
+      show("wifi-results", false);
+      show("scan-status", true);
+      text("scan-status", "正在扫描…");
+      try {
+        await api("wifi/scan", "POST");
+        const deadline = Date.now() + 9000;
+        while (Date.now() < deadline) {
+          await new Promise(resolve => setTimeout(resolve, 400));
+          const scan = await api("wifi/scan");
+          if (scan.status === "scanning") continue;
+          if (scan.status !== "done") break;
+          byId("wifi-choice").replaceChildren(new Option("选择网络", ""), ...scan.networks.map(({ssid, rssi, open}) =>
+            new Option(`${ssid} · ${rssi} dBm${open ? " · 开放" : ""}`, ssid)));
+          show("wifi-results", scan.networks.length > 0);
+          text("scan-status", scan.networks.length ? `找到 ${scan.networks.length} 个网络` : "未找到可选网络，可手动输入网络名称。");
+          return;
+        }
+        text("scan-status", "扫描未完成，请重试或手动输入网络名称。");
+      } catch (error) {
+        text("scan-status", "扫描失败，请重试或手动输入网络名称。");
+        throw error;
+      }
+    });
+    byId("wifi-choice").onchange = () => {
+      const ssid = value("wifi-choice");
+      if (!ssid) return;
+      if (value("ssid") !== ssid) byId("wifi-password").value = "";
+      byId("ssid").value = ssid;
+      byId("wifi-password").focus();
+    };
+    byId("ssid").oninput = () => { byId("wifi-choice").value = ""; };
     byId("wifi-form").addEventListener("submit", event => {
       event.preventDefault();
       action(async () => {
         await api("wifi", "POST", { ssid: value("ssid"), password: value("wifi-password") });
         byId("wifi-password").value = "";
         networkSwitch = true;
-        text("notice", "设备正在切换网络。请看设备屏幕，用新地址打开网页；连接失败时可重新加入配网热点。");
+        text("notice", "设备正在切换网络。请按屏幕显示的地址重新打开网页。");
       });
     });
     byId("clear-wifi").onclick = () => {
-      if (!confirm("清除设备已保存的 Wi-Fi 网络？")) return;
+      if (!confirm("清除设备上所有已保存的 Wi-Fi 网络？")) return;
       action(async () => {
         await api("wifi", "DELETE");
         if (state.network === "online") {

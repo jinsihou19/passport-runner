@@ -1,4 +1,4 @@
-#include "passport_config.h"
+#include "passport_network.h"
 
 #include <ctype.h>
 #include <string.h>
@@ -42,4 +42,54 @@ bool passport_wifi_valid(const passport_wifi_t *wifi)
         if (password == 64 ? !isxdigit(ch) : (ch < 0x20 || ch > 0x7e)) return false;
     }
     return true;
+}
+
+void passport_wifi_remember(passport_wifi_profiles_t *profiles, const passport_wifi_t *wifi)
+{
+    if (strcmp(profiles->slots[0].ssid, wifi->ssid) != 0) profiles->slots[1] = profiles->slots[0];
+    profiles->slots[0] = *wifi;
+}
+
+const passport_wifi_t *passport_wifi_next(const passport_wifi_profiles_t *profiles,
+                                         const passport_wifi_t *current, unsigned *attempted)
+{
+    if (current) {
+        for (unsigned i = 0; i < PASSPORT_WIFI_SLOTS; ++i) {
+            const passport_wifi_t *wifi = &profiles->slots[i];
+            if (strcmp(current->ssid, wifi->ssid) == 0 && strcmp(current->password, wifi->password) == 0) {
+                *attempted |= 1U << i;
+                break;
+            }
+        }
+    }
+    for (unsigned i = 0; i < PASSPORT_WIFI_SLOTS; ++i) {
+        unsigned bit = 1U << i;
+        if (!(*attempted & bit) && profiles->slots[i].ssid[0]) {
+            *attempted |= bit;
+            return &profiles->slots[i];
+        }
+    }
+    return NULL;
+}
+
+void passport_wifi_scan_add(passport_wifi_scan_t *scan, const char *ssid, int8_t rssi, bool open)
+{
+    size_t length = strnlen(ssid, sizeof(scan->points[0].ssid));
+    if (!length || length >= sizeof(scan->points[0].ssid) || passport_utf8_prefix(ssid, length) != length ||
+        strpbrk(ssid, "\r\n")) return;
+
+    size_t index = 0;
+    while (index < scan->count && strcmp(scan->points[index].ssid, ssid) != 0) ++index;
+    if (index < scan->count && scan->points[index].rssi >= rssi) return;
+    if (index == scan->count && scan->count < PASSPORT_WIFI_SCAN_LIMIT) ++scan->count;
+
+    while (index && scan->points[index - 1].rssi < rssi) {
+        if (index < PASSPORT_WIFI_SCAN_LIMIT) scan->points[index] = scan->points[index - 1];
+        --index;
+    }
+    if (index < PASSPORT_WIFI_SCAN_LIMIT) {
+        memcpy(scan->points[index].ssid, ssid, length + 1);
+        scan->points[index].rssi = rssi;
+        scan->points[index].open = open;
+    }
 }

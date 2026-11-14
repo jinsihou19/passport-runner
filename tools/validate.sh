@@ -26,7 +26,7 @@ run_static_checks() {
 
     test_dir="$(mktemp -d /tmp/ai-passport-host-tests.XXXXXX)"
     "${CC:-cc}" -std=c11 -D_POSIX_C_SOURCE=200809L -Wall -Wextra -Werror \
-        -Itests/bsp_stubs -Imain/common -Imain/apps/esp-claw \
+        -Itests/bsp_stubs -Imain/common -Imain/common/network -Imain/apps/esp-claw \
         tests/test_passport_input.c main/common/network/passport_input.c main/apps/esp-claw/passport_model.c \
         -o "${test_dir}/test_passport_input"
     "${test_dir}/test_passport_input"
